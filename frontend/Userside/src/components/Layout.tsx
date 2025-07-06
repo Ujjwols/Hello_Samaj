@@ -1,9 +1,10 @@
-
+// src/components/Layout.tsx
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Menu, X, Globe, User, FileText, Search, MessageSquare, UserCircle, HelpCircle, MapPin, Phone, Mail } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useAuth } from '@/context/Authcontext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,8 +13,7 @@ interface LayoutProps {
 const Layout = ({ children }: LayoutProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { language, t, toggleLanguage } = useTranslation();
-  // Simulate login state - in real app this would come from auth context
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const { isLoggedIn } = useAuth();
   const location = useLocation();
 
   const navigation = [
@@ -23,10 +23,11 @@ const Layout = ({ children }: LayoutProps) => {
     { name: t('nav.public'), href: '/public', icon: FileText },
     { name: t('nav.help'), href: '/help', icon: HelpCircle },
     { name: t('nav.feedback'), href: '/feedback', icon: MessageSquare },
-    ...(isLoggedIn 
-      ? [{ name: t('nav.profile'), href: '/profile', icon: UserCircle }]
-      : [{ name: t('nav.login'), href: '/login', icon: User }]
-    ),
+    {
+      name: isLoggedIn ? t('nav.profile') : t('nav.login'),
+      href: isLoggedIn ? '/profile' : '/login',
+      icon: isLoggedIn ? UserCircle : User,
+    },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -37,7 +38,6 @@ const Layout = ({ children }: LayoutProps) => {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
             <Link to="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">HS</span>
@@ -45,7 +45,6 @@ const Layout = ({ children }: LayoutProps) => {
               <span className="text-xl font-bold text-gray-900">Hello Samaj</span>
             </Link>
 
-            {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-1">
               {navigation.map((item) => (
                 <Link
@@ -63,7 +62,6 @@ const Layout = ({ children }: LayoutProps) => {
               ))}
             </nav>
 
-            {/* Language Toggle & Mobile Menu */}
             <div className="flex items-center space-x-2">
               <Button
                 variant="outline"
@@ -75,7 +73,6 @@ const Layout = ({ children }: LayoutProps) => {
                 {language === 'en' ? 'नेपाली' : 'English'}
               </Button>
 
-              {/* Mobile menu button */}
               <Button
                 variant="ghost"
                 size="sm"
@@ -88,7 +85,6 @@ const Layout = ({ children }: LayoutProps) => {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
         {isMenuOpen && (
           <div className="md:hidden border-t bg-white">
             <div className="px-2 pt-2 pb-3 space-y-1">
@@ -121,16 +117,11 @@ const Layout = ({ children }: LayoutProps) => {
         )}
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1">
-        {children}
-      </main>
+      <main className="flex-1">{children}</main>
 
-      {/* Footer */}
       <footer className="bg-gray-900 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {/* Brand Section */}
             <div className="md:col-span-1">
               <div className="flex items-center space-x-2 mb-4">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
@@ -143,7 +134,6 @@ const Layout = ({ children }: LayoutProps) => {
               </p>
             </div>
 
-            {/* Quick Links */}
             <div className="md:col-span-1">
               <h3 className="font-semibold text-lg mb-4">{t('footer.quickLinks')}</h3>
               <ul className="space-y-2">
@@ -154,7 +144,6 @@ const Layout = ({ children }: LayoutProps) => {
               </ul>
             </div>
 
-            {/* Support */}
             <div className="md:col-span-1">
               <h3 className="font-semibold text-lg mb-4">{t('footer.support')}</h3>
               <ul className="space-y-2">
@@ -165,7 +154,6 @@ const Layout = ({ children }: LayoutProps) => {
               </ul>
             </div>
 
-            {/* Contact Information */}
             <div className="md:col-span-1">
               <h3 className="font-semibold text-lg mb-4">{t('footer.contact')}</h3>
               <div className="space-y-3">
@@ -188,7 +176,6 @@ const Layout = ({ children }: LayoutProps) => {
             </div>
           </div>
 
-          {/* Bottom Section */}
           <div className="border-t border-gray-800 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">
               © 2024 Hello Samaj. {t('footer.rights')}

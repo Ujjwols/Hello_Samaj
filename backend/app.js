@@ -7,28 +7,28 @@ dotenv.config();
 
 const app = express();
 
-// // Define allowed origins with fallback
-// const allowedOrigins = [
-//   process.env.CORS_ORIGIN || 'http://localhost:3000',
-//   process.env.USER_CORS_ORIGIN || 'http://localhost:5173',
-// ].filter(Boolean);
+// Define allowed origins with fallback
+const allowedOrigins = [
+  process.env.CORS_ORIGIN || 'http://localhost:3000',
+  process.env.USER_CORS_ORIGIN || 'http://localhost:5173',
+].filter(Boolean);
 
-// // Configure CORS
-// app.use(
-//   cors({
-//     origin: (origin, callback) => {
-//       console.log('Request origin:', origin); // Log origin for debugging
-//       if (!origin || allowedOrigins.includes(origin)) {
-//         return callback(null, true);
-//       }
-//       console.error(`CORS error: Origin ${origin} not allowed`);
-//       return callback(new Error('Not allowed by CORS'));
-//     },
-//     credentials: true,
-//     allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-frontend'],
-//     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-//   })
-// );
+// Configure CORS
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      console.log('Request origin:', origin); // Log origin for debugging
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      console.error(`CORS error: Origin ${origin} not allowed`);
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-admin-frontend'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  })
+);
 
 // Log response headers for debugging
 app.use((req, res, next) => {
@@ -49,6 +49,15 @@ app.use(express.static('public'));
 
 // Parse cookies
 app.use(cookieParser());
+
+// Routers
+const userRouter = require('./routes/userRoutes');
+// const eventRouter = require('./routes/eventRoutes');
+// const galleryRouter = require('./routes/galeryRoutes');
+
+app.use('/api/v1/users', userRouter);
+// app.use('/api/v1/event', eventRouter);
+// app.use('/api/v1/gallery', galleryRouter);
 
 
 

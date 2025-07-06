@@ -1,23 +1,28 @@
-
+// src/components/Profile.tsx
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Edit, Save, X, Eye, Trash2 } from 'lucide-react';
+import { Edit, Save, X, Eye, Trash2, LogOut } from 'lucide-react';
+import { useAuth } from '@/context/Authcontext';
+import { useToast } from '@/hooks/use-toast';
 
 const Profile = () => {
+  const { logout } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [userInfo, setUserInfo] = useState({
     name: 'John Doe',
     email: 'john.doe@example.com',
     phone: '+977-9841234567',
     ward: 'Ward 5',
-    municipality: 'Kathmandu Metropolitan City'
+    municipality: 'Kathmandu Metropolitan City',
   });
 
-  // Mock complaints data
   const [complaints] = useState([
     {
       id: 'HS2024001',
@@ -26,7 +31,7 @@ const Profile = () => {
       ward: 'Ward 5',
       status: 'In Progress',
       date: '2024-01-15',
-      priority: 'High'
+      priority: 'High',
     },
     {
       id: 'HS2024002',
@@ -35,7 +40,7 @@ const Profile = () => {
       ward: 'Ward 5',
       status: 'Resolved',
       date: '2024-01-10',
-      priority: 'Medium'
+      priority: 'Medium',
     },
     {
       id: 'HS2024003',
@@ -44,19 +49,30 @@ const Profile = () => {
       ward: 'Ward 5',
       status: 'Pending',
       date: '2024-01-20',
-      priority: 'Medium'
-    }
+      priority: 'Medium',
+    },
   ]);
 
   const handleSave = () => {
     setIsEditing(false);
-    // Here you would typically save to backend
     console.log('Profile updated:', userInfo);
+    toast({
+      title: 'Profile Updated',
+      description: 'Your profile information has been saved.',
+    });
   };
 
   const handleCancel = () => {
     setIsEditing(false);
-    // Reset to original values if needed
+  };
+
+  const handleLogout = () => {
+    logout();
+    toast({
+      title: 'Logged Out',
+      description: 'You have been successfully logged out.',
+    });
+    navigate('/login');
   };
 
   const getStatusColor = (status: string) => {
@@ -88,42 +104,34 @@ const Profile = () => {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Profile Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
-          <p className="text-gray-600 mt-2">Manage your account information and view your complaints</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">My Profile</h1>
+            <p className="text-gray-600 mt-2">Manage your account information and view your complaints</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            <LogOut className="w-4 h-4 mr-2" />
+            Logout
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Profile Information */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Personal Information</CardTitle>
                 {!isEditing ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsEditing(true)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                     <Edit className="w-4 h-4 mr-2" />
                     Edit
                   </Button>
                 ) : (
                   <div className="flex space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleSave}
-                    >
+                    <Button variant="outline" size="sm" onClick={handleSave}>
                       <Save className="w-4 h-4 mr-2" />
                       Save
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCancel}
-                    >
+                    <Button variant="outline" size="sm" onClick={handleCancel}>
                       <X className="w-4 h-4 mr-2" />
                       Cancel
                     </Button>
@@ -132,9 +140,7 @@ const Profile = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                   {isEditing ? (
                     <Input
                       value={userInfo.name}
@@ -146,9 +152,7 @@ const Profile = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                   {isEditing ? (
                     <Input
                       type="email"
@@ -161,9 +165,7 @@ const Profile = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                   {isEditing ? (
                     <Input
                       value={userInfo.phone}
@@ -175,9 +177,7 @@ const Profile = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ward
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ward</label>
                   {isEditing ? (
                     <Input
                       value={userInfo.ward}
@@ -189,9 +189,7 @@ const Profile = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Municipality
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Municipality</label>
                   {isEditing ? (
                     <Input
                       value={userInfo.municipality}
@@ -205,14 +203,11 @@ const Profile = () => {
             </Card>
           </div>
 
-          {/* Complaints History */}
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
                 <CardTitle>My Complaints</CardTitle>
-                <p className="text-sm text-gray-600">
-                  Track the status of your submitted complaints
-                </p>
+                <p className="text-sm text-gray-600">Track the status of your submitted complaints</p>
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -231,13 +226,9 @@ const Profile = () => {
                     <TableBody>
                       {complaints.map((complaint) => (
                         <TableRow key={complaint.id}>
-                          <TableCell className="font-medium">
-                            {complaint.id}
-                          </TableCell>
+                          <TableCell className="font-medium">{complaint.id}</TableCell>
                           <TableCell>
-                            <Badge variant="outline">
-                              {complaint.type}
-                            </Badge>
+                            <Badge variant="outline">{complaint.type}</Badge>
                           </TableCell>
                           <TableCell className="max-w-xs">
                             <p className="truncate" title={complaint.description}>
@@ -245,25 +236,15 @@ const Profile = () => {
                             </p>
                           </TableCell>
                           <TableCell>
-                            <Badge className={getStatusColor(complaint.status)}>
-                              {complaint.status}
-                            </Badge>
+                            <Badge className={getStatusColor(complaint.status)}>{complaint.status}</Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={getPriorityColor(complaint.priority)}>
-                              {complaint.priority}
-                            </Badge>
+                            <Badge className={getPriorityColor(complaint.priority)}>{complaint.priority}</Badge>
                           </TableCell>
-                          <TableCell>
-                            {new Date(complaint.date).toLocaleDateString()}
-                          </TableCell>
+                          <TableCell>{new Date(complaint.date).toLocaleDateString()}</TableCell>
                           <TableCell>
                             <div className="flex space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                title="View Details"
-                              >
+                              <Button variant="outline" size="sm" title="View Details">
                                 <Eye className="w-4 h-4" />
                               </Button>
                               {complaint.status === 'Pending' && (
@@ -287,9 +268,7 @@ const Profile = () => {
                 {complaints.length === 0 && (
                   <div className="text-center py-8">
                     <p className="text-gray-500">No complaints submitted yet.</p>
-                    <Button className="mt-4">
-                      Submit Your First Complaint
-                    </Button>
+                    <Button className="mt-4">Submit Your First Complaint</Button>
                   </div>
                 )}
               </CardContent>

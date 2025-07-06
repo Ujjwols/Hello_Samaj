@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 
 interface Translations {
@@ -78,6 +77,68 @@ const translations: Translations = {
   'login.missingInfo': { en: 'Missing Information', ne: 'जानकारी छुटेको' },
   'login.fillAllFields': { en: 'Please fill in all required fields.', ne: 'कृपया सबै आवश्यक क्षेत्रहरू भर्नुहोस्।' },
   'login.success': { en: 'Login Successful!', ne: 'लगइन सफल!' },
+  'login.otp': { en: 'OTP', ne: 'OTP' },
+  'login.otpPlaceholder': { en: 'Enter OTP', ne: 'OTP प्रविष्ट गर्नुहोस्' },
+  'login.otpDescription': { en: 'Enter the OTP sent to your email or phone', ne: 'तपाईंको इमेल वा फोनमा पठाइएको OTP प्रविष्ट गर्नुहोस्' },
+  'login.otpSent': { en: 'OTP Sent', ne: 'OTP पठाइयो' },
+  'login.otpSentDescription': { en: 'An OTP has been sent to your {{method}}.', ne: 'तपाईंको {{method}} मा OTP पठाइयो।' },
+  'login.sendOTP': { en: 'Send OTP', ne: 'OTP पठाउनुहोस्' },
+  'login.verifyOTP': { en: 'Verify OTP', ne: 'OTP प्रमाणीकरण गर्नुहोस्' },
+  'login.verifyingOTP': { en: 'Verifying OTP...', ne: 'OTP प्रमाणीकरण गर्दै...' },
+  'login.otpVerificationFailed': { en: 'OTP Verification Failed', ne: 'OTP प्रमाणीकरण असफल' },
+  'login.enterOTP': { en: 'Please enter the OTP sent to your email or phone.', ne: 'कृपया तपाईंको इमेल वा फोनमा पठाइएको OTP प्रविष्ट गर्नुहोस्।' },
+  'login.invalidOTP': { en: 'Invalid OTP. Please try again.', ne: 'अमान्य OTP। कृपया फेरि प्रयास गर्नुहोस्।' },
+  
+  // Register page
+  'register.welcome': { en: 'Join Hello Samaj', ne: 'Hello Samaj मा सामेल हुनुहोस्' },
+  'register.subtitle': { en: 'Create your account to get started', ne: 'सुरु गर्न आफ्नो खाता बनाउनुहोस्' },
+  'register.title': { en: 'Register', ne: 'दर्ता' },
+  'register.description': { en: 'Fill in your details to create an account', ne: 'खाता बनाउन आफ्नो विवरणहरू भर्नुहोस्' },
+  'register.fullName': { en: 'Full Name *', ne: 'पूरा नाम *' },
+  'register.fullNamePlaceholder': { en: 'Your full name', ne: 'तपाईंको पूरा नाम' },
+  'register.emailAddress': { en: 'Email Address *', ne: 'इमेल ठेगाना *' },
+  'register.emailPlaceholder': { en: 'your.email@example.com', ne: 'तपाईको.इमेल@उदाहरण.com' },
+  'register.phoneNumber': { en: 'Phone Number *', ne: 'फोन नम्बर *' },
+  'register.phoneNumberPlaceholder': { en: '+977-98XXXXXXXX', ne: '+977-98XXXXXXXX' },
+  'register.password': { en: 'Password *', ne: 'पासवर्ड *' },
+  'register.passwordPlaceholder': { en: 'Create a strong password', ne: 'बलियो पासवर्ड बनाउनुहोस्' },
+  'register.confirmPassword': { en: 'Confirm Password *', ne: 'पासवर्ड पुष्टि गर्नुहोस् *' },
+  'register.confirmPasswordPlaceholder': { en: 'Confirm your password', ne: 'आफ्नो पासवर्ड पुष्टि गर्नुहोस्' },
+  'register.city': { en: 'City *', ne: 'शहर *' },
+  'register.selectCity': { en: 'Select city', ne: 'शहर छान्नुहोस्' },
+  'register.kathmandu': { en: 'Kathmandu', ne: 'काठमाडौं' },
+  'register.lalitpur': { en: 'Lalitpur', ne: 'ललितपुर' },
+  'register.bhaktapur': { en: 'Bhaktapur', ne: 'भक्तपुर' },
+  'register.wardNumber': { en: 'Ward Number *', ne: 'वडा नम्बर *' },
+  'register.selectWardNumber': { en: 'Select ward number', ne: 'वडा नम्बर छान्नुहोस्' },
+  'register.ward': { en: 'Ward', ne: 'वडा' },
+  'register.tole': { en: 'Tole (Optional)', ne: 'टोल (वैकल्पिक)' },
+  'register.tolePlaceholder': { en: 'Your tole (e.g., Na Tole)', ne: 'तपाईंको टोल (उदाहरण, ना टोल)' },
+  'register.gender': { en: 'Gender *', ne: 'लिङ्ग *' },
+  'register.selectGender': { en: 'Select gender', ne: 'लिङ्ग छान्नुहोस्' },
+  'register.male': { en: 'Male', ne: 'पुरुष' },
+  'register.female': { en: 'Female', ne: 'महिला' },
+  'register.dob': { en: 'Date of Birth *', ne: 'जन्म मिति *' },
+  'register.profilePic': { en: 'Profile Picture *', ne: 'प्रोफाइल तस्वीर *' },
+  'register.additionalFile': { en: 'Additional File (Optional)', ne: 'थप फाइल (वैकल्पिक)' },
+  'register.agreeTo': { en: 'I agree to the', ne: 'म सहमत छु' },
+  'register.and': { en: 'and', ne: 'र' },
+  'register.passwordMismatch': { en: 'Password Mismatch', ne: 'पासवर्ड मेल खाएन' },
+  'register.passwordsDoNotMatch': { en: 'Passwords do not match. Please try again.', ne: 'पासवर्डहरू मेल खाएनन्। कृपया फेरि प्रयास गर्नुहोस्।' },
+  'register.termsRequired': { en: 'Terms Required', ne: 'सर्तहरू आवश्यक' },
+  'register.agreeToTerms': { en: 'Please agree to the terms and conditions.', ne: 'कृपया सर्तहरू र नियमहरूमा सहमत हुनुहोस्।' },
+  'register.invalidWardNumber': { en: 'Invalid Ward Number', ne: 'अमान्य वडा नम्बर' },
+  'register.invalidWardKathmandu': { en: 'Ward number for Kathmandu must be between 1 and 32.', ne: 'काठमाडौंको लागि वडा नम्बर १ देखि ३२ सम्म हुनुपर्छ।' },
+  'register.invalidWardLalitpur': { en: 'Ward number for Lalitpur must be between 1 and 29.', ne: 'ललितपुरको लागि वडा नम्बर १ देखि २९ सम्म हुनुपर्छ।' },
+  'register.invalidWardBhaktapur': { en: 'Ward number for Bhaktapur must be between 1 and 10.', ne: 'भक्तपुरको लागि वडा नम्बर १ देखि १० सम्म हुनुपर्छ।' },
+  'register.registrationSuccessful': { en: 'Registration Successful!', ne: 'दर्ता सफल!' },
+  'register.welcomeMessage': { en: 'Welcome to Hello Samaj. Your account has been created.', ne: 'Hello Samaj मा स्वागत छ। तपाईंको खाता बनाइयो।' },
+  'register.registrationFailed': { en: 'Registration Failed', ne: 'दर्ता असफल' },
+  'register.errorOccurred': { en: 'An error occurred. Please try again.', ne: 'एउटा त्रुटि भयो। कृपया फेरि प्रयास गर्नुहोस्।' },
+  'register.missingInfo': { en: 'Missing Information', ne: 'जानकारी छुटेको' },
+  'register.fillAllFields': { en: 'Please fill in all required fields and upload a profile picture.', ne: 'कृपया सबै आवश्यक क्षेत्रहरू भर्नुहोस् र प्रोफाइल तस्वीर अपलोड गर्नुहोस्।' },
+  'register.alreadyHaveAccount': { en: 'Already have an account?', ne: 'पहिले नै खाता छ?' },
+  'register.creatingAccount': { en: 'Creating Account...', ne: 'खाता बनाउँदै...' },
   
   // Status
   'status.pending': { en: 'Pending', ne: 'बाँकी' },
@@ -110,17 +171,23 @@ export const useTranslation = () => {
     localStorage.setItem('language', language);
   }, [language]);
 
-  const t = (key: string): string => {
-    return translations[key]?.[language] || key;
+  const t = (key: string, params?: { [key: string]: string }): string => {
+    let translation = translations[key]?.[language] || key;
+    if (params) {
+      Object.keys(params).forEach((param) => {
+        translation = translation.replace(`{{${param}}}`, params[param]);
+      });
+    }
+    return translation;
   };
 
   const toggleLanguage = () => {
-    setLanguage(prev => prev === 'en' ? 'ne' : 'en');
+    setLanguage((prev) => (prev === 'en' ? 'ne' : 'en'));
   };
 
   return {
     language,
     t,
-    toggleLanguage
+    toggleLanguage,
   };
 };
