@@ -10,10 +10,23 @@ import { Edit, Save, X, Eye, Trash2, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/Authcontext';
 import { useToast } from '@/hooks/use-toast';
 
+// Set axios defaults
+axios.defaults.withCredentials = true;
+
 const API_URL = 'http://localhost:5000/api/v1';
 
+interface Complaint {
+  complaintId: string;
+  type: string;
+  description: string;
+  status: string;
+  priority: string;
+  submittedDate: string;
+  userId: string;
+}
+
 const Profile = () => {
-  const { user, accessToken, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
@@ -27,29 +40,23 @@ const Profile = () => {
     gender: '',
     dob: '',
   });
-  const [complaints, setComplaints] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || !user._id || !accessToken) {
-      console.log('No user, user._id, or accessToken found, redirecting to login:', { user, accessToken });
-      navigate('/login');
-      return;
-    }
+    const fetchData = async () => {
+      if (!user?._id) {
+        navigate('/login');
+        return;
+      }
 
-    // Fetch user details
-    const fetchUser = async () => {
-      setIsLoading(true);
       try {
-        console.log('Fetching user with ID:', user._id);
-        console.log('Access Token:', accessToken);
-        const response = await axios.get(`${API_URL}/users/get-user/${user._id}`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        console.log('User fetch response:', response.data);
-        const { fullname, email, phoneNumber, city, wardNumber, tole, gender, dob } = response.data.data;
+        setIsLoading(true);
+        
+        // Fetch user details
+        const userResponse = await axios.get(`${API_URL}/users/get-user/${user._id}`);
+        const { fullname, email, phoneNumber, city, wardNumber, tole, gender, dob } = userResponse.data.data;
+        
         setUserInfo({
           fullname: fullname || '',
           email: email || '',
@@ -60,57 +67,61 @@ const Profile = () => {
           gender: gender || '',
           dob: dob ? new Date(dob).toISOString().split('T')[0] : '',
         });
+
+        // Fetch complaints
+        const complaintsResponse = await axios.get(`${API_URL}/complaints/get-all-complaints`);
+        const userComplaints = complaintsResponse.data.data.filter(
+          (complaint: Complaint) => complaint.userId === user._id
+        );
+        setComplaints(userComplaints);
       } catch (error) {
-        console.error('Fetch user error:', error.response?.data || error.message);
-        toast({
-          title: 'Error',
-          description: error.response?.data?.message || 'Failed to fetch user details',
-          variant: 'destructive',
-        });
+        console.error('Fetch error:', error);
+        
+        if (axios.isAxiosError(error)) {
+          if (error.response?.status === 401) {
+            toast({
+              title: 'Session Expired',
+              description: 'Please login again',
+              variant: 'destructive',
+            });
+            logout();
+            navigate('/login');
+            return;
+          }
+          
+          toast({
+            title: 'Error',
+            description: error.response?.data?.message || 'Failed to fetch data',
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Error',
+            description: 'An unexpected error occurred',
+            variant: 'destructive',
+          });
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Fetch user complaints
-      const fetchComplaints = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/complaints/get-all-complaints`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        const userComplaints = response.data.data.filter(
-          (complaint) => complaint.userId === user._id // or complaint.createdBy === user._id depending on backend schema
-        );
-        setComplaints(userComplaints);
-      } catch (error) {
-        console.error('Fetch complaints error:', error.response?.data || error.message);
-      }
-    };
-
-    fetchUser();
-    fetchComplaints();
-  }, [user, accessToken, navigate, toast]);
+    fetchData();
+  }, [user, navigate, toast, logout]);
 
   const handleSave = async () => {
     try {
-      console.log('Saving user info:', userInfo);
+      setIsLoading(true);
       const response = await axios.patch(
-        `${API_URL}/users/update-user/${user._id}`,
-        userInfo,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+        `${API_URL}/users/update-user/${user?._id}`,
+        userInfo
       );
-      console.log('Update user response:', response.data);
-      setIsEditing(false);
+
       toast({
         title: 'Profile Updated',
         description: 'Your profile information has been saved.',
       });
+      
       setUserInfo({
         fullname: response.data.data.fullname || '',
         email: response.data.data.email || '',
@@ -121,13 +132,25 @@ const Profile = () => {
         gender: response.data.data.gender || '',
         dob: response.data.data.dob ? new Date(response.data.data.dob).toISOString().split('T')[0] : '',
       });
+      setIsEditing(false);
     } catch (error) {
-      console.error('Update user error:', error.response?.data || error.message);
-      toast({
-        title: 'Error',
-        description: error.response?.data?.message || 'Failed to update profile',
-        variant: 'destructive',
-      });
+      console.error('Update error:', error);
+      
+      if (axios.isAxiosError(error)) {
+        toast({
+          title: 'Error',
+          description: error.response?.data?.message || 'Failed to update profile',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -135,43 +158,77 @@ const Profile = () => {
     setIsEditing(false);
   };
 
-  const handleLogout = () => {
-    console.log('Logging out user');
-    logout();
-    toast({
-      title: 'Logged Out',
-      description: 'You have been successfully logged out.',
-    });
-    navigate('/login');
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${API_URL}/users/logout`);
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      logout();
+      toast({
+        title: 'Logged Out',
+        description: 'You have been successfully logged out.',
+      });
+      navigate('/login');
+    }
+  };
+
+  const handleDeleteComplaint = async (complaintId: string) => {
+    try {
+      await axios.delete(`${API_URL}/complaints/delete-complaint/${complaintId}`);
+      setComplaints(complaints.filter(c => c.complaintId !== complaintId));
+      toast({
+        title: 'Complaint Deleted',
+        description: 'The complaint has been deleted successfully.',
+      });
+    } catch (error) {
+      console.error('Delete error:', error);
+      
+      if (axios.isAxiosError(error)) {
+        toast({
+          title: 'Error',
+          description: error.response?.data?.message || 'Failed to delete complaint',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred',
+          variant: 'destructive',
+        });
+      }
+    }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Resolved':
-        return 'bg-green-100 text-green-800';
-      case 'In Progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'Under Review':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Submitted':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'Resolved': return 'bg-green-100 text-green-800';
+      case 'In Progress': return 'bg-blue-100 text-blue-800';
+      case 'Under Review': return 'bg-yellow-100 text-yellow-800';
+      case 'Submitted': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'High':
-        return 'bg-red-100 text-red-800';
-      case 'Medium':
-        return 'bg-orange-100 text-orange-800';
-      case 'Low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'High': return 'bg-red-100 text-red-800';
+      case 'Medium': return 'bg-orange-100 text-orange-800';
+      case 'Low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -187,146 +244,89 @@ const Profile = () => {
           </Button>
         </div>
 
-        {isLoading ? (
-          <p>Loading...</p>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Personal Information</CardTitle>
-                  {!isEditing ? (
-                    <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Personal Information Card */}
+          <div className="lg:col-span-1">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Personal Information</CardTitle>
+                {!isEditing ? (
+                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                ) : (
+                  <div className="flex space-x-2">
+                    <Button variant="outline" size="sm" onClick={handleSave}>
+                      <Save className="w-4 h-4 mr-2" />
+                      Save
                     </Button>
-                  ) : (
-                    <div className="flex space-x-2">
-                      <Button variant="outline" size="sm" onClick={handleSave}>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={handleCancel}>
-                        <X className="w-4 h-4 mr-2" />
-                        Cancel
-                      </Button>
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                    <Button variant="outline" size="sm" onClick={handleCancel}>
+                      <X className="w-4 h-4 mr-2" />
+                      Cancel
+                    </Button>
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {Object.entries({
+                  fullname: 'Full Name',
+                  email: 'Email',
+                  phoneNumber: 'Phone Number',
+                  city: 'City',
+                  wardNumber: 'Ward Number',
+                  tole: 'Tole',
+                  gender: 'Gender',
+                  dob: 'Date of Birth'
+                }).map(([key, label]) => (
+                  <div key={key}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
                     {isEditing ? (
-                      <Input
-                        value={userInfo.fullname}
-                        onChange={(e) => setUserInfo({ ...userInfo, fullname: e.target.value })}
-                      />
+                      key === 'gender' ? (
+                        <select
+                          value={userInfo.gender}
+                          onChange={(e) => setUserInfo({...userInfo, gender: e.target.value})}
+                          className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        >
+                          <option value="">Select Gender</option>
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                        </select>
+                      ) : key === 'dob' ? (
+                        <Input
+                          type="date"
+                          value={userInfo.dob}
+                          onChange={(e) => setUserInfo({...userInfo, dob: e.target.value})}
+                        />
+                      ) : (
+                        <Input
+                          value={userInfo[key as keyof typeof userInfo] as string}
+                          onChange={(e) => setUserInfo({...userInfo, [key]: e.target.value})}
+                          type={key === 'email' ? 'email' : 'text'}
+                        />
+                      )
                     ) : (
-                      <p className="text-gray-900">{userInfo.fullname || 'N/A'}</p>
+                      <p className="text-gray-900">
+                        {key === 'dob' && userInfo.dob 
+                          ? new Date(userInfo.dob).toLocaleDateString() 
+                          : userInfo[key as keyof typeof userInfo] || 'N/A'}
+                      </p>
                     )}
                   </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    {isEditing ? (
-                      <Input
-                        type="email"
-                        value={userInfo.email}
-                        onChange={(e) => setUserInfo({ ...userInfo, email: e.target.value })}
-                      />
-                    ) : (
-                      <p className="text-gray-900">{userInfo.email || 'N/A'}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-                    {isEditing ? (
-                      <Input
-                        value={userInfo.phoneNumber}
-                        onChange={(e) => setUserInfo({ ...userInfo, phoneNumber: e.target.value })}
-                      />
-                    ) : (
-                      <p className="text-gray-900">{userInfo.phoneNumber || 'N/A'}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                    {isEditing ? (
-                      <Input
-                        value={userInfo.city}
-                        onChange={(e) => setUserInfo({ ...userInfo, city: e.target.value })}
-                      />
-                    ) : (
-                      <p className="text-gray-900">{userInfo.city || 'N/A'}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ward Number</label>
-                    {isEditing ? (
-                      <Input
-                        value={userInfo.wardNumber}
-                        onChange={(e) => setUserInfo({ ...userInfo, wardNumber: e.target.value })}
-                      />
-                    ) : (
-                      <p className="text-gray-900">{userInfo.wardNumber || 'N/A'}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Tole</label>
-                    {isEditing ? (
-                      <Input
-                        value={userInfo.tole}
-                        onChange={(e) => setUserInfo({ ...userInfo, tole: e.target.value })}
-                      />
-                    ) : (
-                      <p className="text-gray-900">{userInfo.tole || 'N/A'}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                    {isEditing ? (
-                      <select
-                        value={userInfo.gender}
-                        onChange={(e) => setUserInfo({ ...userInfo, gender: e.target.value })}
-                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      >
-                        <option value="">Select Gender</option>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                      </select>
-                    ) : (
-                      <p className="text-gray-900">{userInfo.gender || 'N/A'}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                    {isEditing ? (
-                      <Input
-                        type="date"
-                        value={userInfo.dob}
-                        onChange={(e) => setUserInfo({ ...userInfo, dob: e.target.value })}
-                      />
-                    ) : (
-                      <p className="text-gray-900">{userInfo.dob || 'N/A'}</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="lg:col-span-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle>My Complaints</CardTitle>
-                  <p className="text-sm text-gray-600">Track the status of your submitted complaints</p>
-                </CardHeader>
-                <CardContent>
+          {/* Complaints Card */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>My Complaints</CardTitle>
+                <p className="text-sm text-gray-600">Track the status of your submitted complaints</p>
+              </CardHeader>
+              <CardContent>
+                {complaints.length > 0 ? (
                   <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
@@ -344,21 +344,23 @@ const Profile = () => {
                         {complaints.map((complaint) => (
                           <TableRow key={complaint.complaintId}>
                             <TableCell className="font-medium">{complaint.complaintId}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{complaint.type}</Badge>
-                            </TableCell>
-                            <TableCell className="max-w-xs">
-                              <p className="truncate" title={complaint.description}>
-                                {complaint.description}
-                              </p>
+                            <TableCell><Badge variant="outline">{complaint.type}</Badge></TableCell>
+                            <TableCell className="max-w-xs truncate" title={complaint.description}>
+                              {complaint.description}
                             </TableCell>
                             <TableCell>
-                              <Badge className={getStatusColor(complaint.status)}>{complaint.status}</Badge>
+                              <Badge className={getStatusColor(complaint.status)}>
+                                {complaint.status}
+                              </Badge>
                             </TableCell>
                             <TableCell>
-                              <Badge className={getPriorityColor(complaint.priority)}>{complaint.priority}</Badge>
+                              <Badge className={getPriorityColor(complaint.priority)}>
+                                {complaint.priority}
+                              </Badge>
                             </TableCell>
-                            <TableCell>{new Date(complaint.submittedDate).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                              {new Date(complaint.submittedDate).toLocaleDateString()}
+                            </TableCell>
                             <TableCell>
                               <div className="flex space-x-2">
                                 <Button
@@ -375,27 +377,7 @@ const Profile = () => {
                                     size="sm"
                                     title="Delete"
                                     className="text-red-600 hover:text-red-700"
-                                    onClick={async () => {
-                                      try {
-                                        await axios.delete(`${API_URL}/delete-complaint/${complaint.complaintId}`, {
-                                          headers: {
-                                            Authorization: `Bearer ${accessToken}`,
-                                          },
-                                        });
-                                        setComplaints(complaints.filter((c) => c.complaintId !== complaint.complaintId));
-                                        toast({
-                                          title: 'Complaint Deleted',
-                                          description: 'The complaint has been deleted successfully.',
-                                        });
-                                      } catch (error) {
-                                        console.error('Delete complaint error:', error.response?.data || error.message);
-                                        toast({
-                                          title: 'Error',
-                                          description: error.response?.data?.message || 'Failed to delete complaint',
-                                          variant: 'destructive',
-                                        });
-                                      }
-                                    }}
+                                    onClick={() => handleDeleteComplaint(complaint.complaintId)}
                                   >
                                     <Trash2 className="w-4 h-4" />
                                   </Button>
@@ -407,20 +389,18 @@ const Profile = () => {
                       </TableBody>
                     </Table>
                   </div>
-
-                  {complaints.length === 0 && (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No complaints submitted yet.</p>
-                      <Button className="mt-4" onClick={() => navigate('/submit-complaint')}>
-                        Submit Your First Complaint
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No complaints submitted yet.</p>
+                    <Button className="mt-4" onClick={() => navigate('/submit-complaint')}>
+                      Submit Your First Complaint
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

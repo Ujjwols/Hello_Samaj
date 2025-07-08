@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/Authcontext";
 import Layout from "./components/Layout";
 import HomePage from "./components/HomePage";
@@ -15,18 +15,9 @@ import Profile from "./components/Profile";
 import FeedbackPage from "./components/FeedbackPage";
 import HelpPage from "./components/HelpPage";
 import NotFound from "./pages/NotFound";
-import { useAuth } from "./context/Authcontext";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
-
-// ProtectedRoute component to restrict access
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isLoggedIn } = useAuth();
-  if (!isLoggedIn) {
-    return <Navigate to="/login" replace />;
-  }
-  return <>{children}</>;
-};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

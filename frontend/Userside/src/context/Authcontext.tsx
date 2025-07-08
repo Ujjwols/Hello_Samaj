@@ -1,5 +1,6 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 interface User {
   _id: string;
@@ -22,42 +23,68 @@ interface User {
 interface AuthContextType {
   isLoggedIn: boolean;
   user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  login: (userData: User, accessToken: string, refreshToken: string) => void;
-  logout: () => void;
+  isLoading: boolean;
+  login: (userData: User) => void;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const API_URL = "http://localhost:5000/api/v1";
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [refreshToken, setRefreshToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  const login = (userData: User, accessToken: string, refreshToken: string) => {
-    console.log('Setting auth data:', { userData, accessToken, refreshToken });
-    setIsLoggedIn(true);
-    setUser(userData);
-    setAccessToken(accessToken);
-    setRefreshToken(refreshToken);
+  const checkAuth = async () => {
+    try {
+      setIsLoading(true);
+      const response = await axios.get(`${API_URL}/users/current-user`, {
+        withCredentials: true,
+      });
+      if (response.data?.data?.user) {
+        login(response.data.data.user);
+      }
+    } catch (error) {
+      logout();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const logout = () => {
-    console.log('Clearing auth data');
-    setIsLoggedIn(false);
-    setUser(null);
-    setAccessToken(null);
-    setRefreshToken(null);
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    navigate('/login');
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const login = (userData: User) => {
+    setIsLoggedIn(true);
+    setUser(userData);
+  };
+
+  const logout = async () => {
+    try {
+      await axios.post(`${API_URL}/users/logout`, {}, { withCredentials: true });
+    } finally {
+      setIsLoggedIn(false);
+      setUser(null);
+      navigate('/login');
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, accessToken, refreshToken, login, logout }}>
+    <AuthContext.Provider 
+      value={{ 
+        isLoggedIn, 
+        user, 
+        isLoading, 
+        login, 
+        logout,
+        checkAuth
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -129,64 +129,59 @@ const LoginPage = () => {
   };
 
   const handleOTPSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!formData.otp || !formData.token) {
+  if (!formData.otp || !formData.token) {
+    toast({
+      title: t("login.missingInfo"),
+      description: t("login.enterOTP"),
+      variant: "destructive",
+    });
+    return;
+  }
+
+  setIsLoading(true);
+
+  try {
+    const response: AxiosResponse<VerifyOTPResponse> = await axios.post(
+      `${API_BASE_URL}/verify-otp`,
+      {
+        token: formData.token,
+        otp: formData.otp,
+        deliveryMethod: formData.deliveryMethod,
+      },
+      { withCredentials: true }
+    );
+
+    if (response.data.success) {
+      const { loggedInUser } = response.data.data;
+      login(loggedInUser);
       toast({
-        title: t("login.missingInfo"),
-        description: t("login.enterOTP"),
+        title: t("login.success"),
+        description: t("login.welcomeBack"),
+      });
+      navigate("/profile");
+    }
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      toast({
+        title: t("login.otpVerificationFailed"),
+        description:
+          (error as AxiosError<ErrorResponse>).response?.data?.message ||
+          t("login.invalidOTP"),
         variant: "destructive",
       });
-      return;
+    } else {
+      toast({
+        title: t("login.otpVerificationFailed"),
+        description: t("login.invalidOTP"),
+        variant: "destructive",
+      });
     }
-
-    setIsLoading(true);
-
-    try {
-      const response: AxiosResponse<VerifyOTPResponse> = await axios.post(
-        `${API_BASE_URL}/verify-otp`,
-        {
-          token: formData.token,
-          otp: formData.otp,
-          deliveryMethod: formData.deliveryMethod,
-        },
-        { withCredentials: true }
-      );
-
-      if (response.data.success) {
-        const { loggedInUser, accessToken, refreshToken } = response.data.data;
-        console.log('Login response:', { loggedInUser, accessToken, refreshToken });
-        localStorage.setItem('accessToken', accessToken);
-        if (formData.rememberMe) {
-          localStorage.setItem('refreshToken', refreshToken);
-        }
-        login(loggedInUser, accessToken, refreshToken);
-        toast({
-          title: t("login.success"),
-          description: t("login.welcomeBack"),
-        });
-        navigate("/profile");
-      }
-    } catch (error: unknown) {
-      if (axios.isAxiosError(error)) {
-        toast({
-          title: t("login.otpVerificationFailed"),
-          description:
-            (error as AxiosError<ErrorResponse>).response?.data?.message ||
-            t("login.invalidOTP"),
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: t("login.otpVerificationFailed"),
-          description: t("login.invalidOTP"),
-          variant: "destructive",
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">

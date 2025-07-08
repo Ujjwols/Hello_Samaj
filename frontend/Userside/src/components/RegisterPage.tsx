@@ -184,13 +184,8 @@ const RegisterPage = () => {
       );
 
       if (response.data.success) {
-        const { user, accessToken, refreshToken } = response.data.data;
-        console.log('Register response:', { user, accessToken, refreshToken });
-        localStorage.setItem('accessToken', accessToken);
-        if (formData.agreeToTerms) {
-          localStorage.setItem('refreshToken', refreshToken);
-        }
-        login(user, accessToken, refreshToken);
+        const { user } = response.data.data;
+        login(user);
         toast({
           title: t("register.registrationSuccessful"),
           description: t("register.welcome"),
