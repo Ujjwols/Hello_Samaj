@@ -38,6 +38,7 @@ const createComplaintController = asyncHandler(async (req, res) => {
 
   // Create complaint
   const complaint = await Complaint.create({
+    complaintId,
     type,
     ward,
     description,
@@ -61,11 +62,9 @@ const createComplaintController = asyncHandler(async (req, res) => {
     ],
   });
 
-  const createdComplaint = await Complaint.findById(complaint._id);
-
   return res
     .status(201)
-    .json(new ApiResponse(201, { ...createdComplaint._doc, complaintId }, `Complaint created successfully with ID: ${complaintId}`));
+    .json(new ApiResponse(201, { complaintId }, `Complaint created successfully with ID: ${complaintId}`));
 });
 
 // Get all complaints (accessible to all users)
@@ -76,26 +75,16 @@ const getAllComplaintsController = asyncHandler(async (req, res) => {
     throw new ApiError(404, "No complaints found");
   }
 
-  // Add complaintId to each complaint
-  const complaintsWithId = complaints.map(complaint => ({
-    ...complaint._doc,
-    complaintId: `HS-${complaint._id.toString().slice(-6)}`,
-  }));
-
   return res
     .status(200)
-    .json(new ApiResponse(200, complaintsWithId, "All complaints fetched successfully"));
+    .json(new ApiResponse(200, complaints, "All complaints fetched successfully"));
 });
 
-// Get single complaint by ID (accessible to all users)
+// Get single complaint by complaintId (accessible to all users)
 const getComplaintController = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid complaint ID");
-  }
-
-  const complaint = await Complaint.findById(id);
+  const complaint = await Complaint.findOne({ complaintId: id });
 
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
@@ -103,7 +92,7 @@ const getComplaintController = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, { ...complaint._doc, complaintId: `HS-${complaint._id.toString().slice(-6)}` }, "Complaint fetched successfully"));
+    .json(new ApiResponse(200, complaint, "Complaint fetched successfully"));
 });
 
 // Update complaint (admin only)
@@ -111,11 +100,7 @@ const updateComplaintController = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { type, ward, description, name, phone, email, location, city, tole, isAnonymous, status, priority, assignedDepartment } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid complaint ID");
-  }
-
-  const complaint = await Complaint.findById(id);
+  const complaint = await Complaint.findOne({ complaintId: id });
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -185,18 +170,14 @@ const updateComplaintController = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, { ...complaint._doc, complaintId: `HS-${complaint._id.toString().slice(-6)}` }, "Complaint updated successfully"));
+    .json(new ApiResponse(200, complaint, "Complaint updated successfully"));
 });
 
 // Delete complaint (admin only)
 const deleteComplaintController = asyncHandler(async (req, res) => {
   const { id } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid complaint ID");
-  }
-
-  const complaint = await Complaint.findById(id);
+  const complaint = await Complaint.findOne({ complaintId: id });
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -215,10 +196,10 @@ const deleteComplaintController = asyncHandler(async (req, res) => {
   }
 
   if (deletionErrors.length > 0) {
-    throw new ApiError(500, `_some files could not be deleted from Cloudinary: ${deletionErrors.join('; ')}`);
+    throw new ApiError(500, `Some files could not be deleted from Cloudinary: ${deletionErrors.join('; ')}`);
   }
 
-  await Complaint.findByIdAndDelete(id);
+  await Complaint.deleteOne({ complaintId: id });
 
   return res
     .status(200)
@@ -229,11 +210,7 @@ const deleteComplaintController = asyncHandler(async (req, res) => {
 const deleteComplaintFileController = asyncHandler(async (req, res) => {
   const { id, fileUrl } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new ApiError(400, "Invalid complaint ID");
-  }
-
-  const complaint = await Complaint.findById(id);
+  const complaint = await Complaint.findOne({ complaintId: id });
   if (!complaint) {
     throw new ApiError(404, "Complaint not found");
   }
@@ -259,7 +236,7 @@ const deleteComplaintFileController = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(new ApiResponse(200, { ...complaint._doc, complaintId: `HS-${complaint._id.toString().slice(-6)}` }, "File deleted successfully"));
+    .json(new ApiResponse(200, complaint, "File deleted successfully"));
 });
 
 module.exports = {

@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const complaintSchema = new mongoose.Schema(
   {
+    complaintId: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
     type: {
       type: String,
       required: true,

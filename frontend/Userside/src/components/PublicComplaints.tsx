@@ -17,9 +17,9 @@ const PublicComplaints = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedWard, setSelectedWard] = useState('all');
-  const [selectedType, setSelectedType] = useState('all');
-  const [selectedCity, setSelectedCity] = useState('all');
+  const [selectedWard, setSelectedWard] = useState('all wards');
+  const [selectedType, setSelectedType] = useState('all types');
+  const [selectedCity, setSelectedCity] = useState('all cities');
   const [complaintIdSearch, setComplaintIdSearch] = useState('');
   const [complaints, setComplaints] = useState([]);
   const [singleComplaint, setSingleComplaint] = useState(null);
@@ -121,13 +121,20 @@ const PublicComplaints = () => {
   const filteredComplaints = singleComplaint
     ? [singleComplaint]
     : complaints.filter((complaint) => {
-        const matchesSearch =
-          complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          complaint.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          complaint.complaintId.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesWard = selectedWard === 'all' || complaint.ward.toLowerCase() === selectedWard;
-        const matchesType = selectedType === 'all' || complaint.type.toLowerCase() === selectedType;
-        const matchesCity = selectedCity === 'all' || complaint.city.toLowerCase() === selectedCity;
+        const matchesSearch = searchTerm === '' || 
+          (complaint.description && complaint.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (complaint.location && complaint.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (complaint.type && complaint.type.toLowerCase().includes(searchTerm.toLowerCase()));
+        
+        const matchesWard = selectedWard === 'all wards' || 
+          (complaint.ward && complaint.ward.toLowerCase() === selectedWard.toLowerCase());
+        
+        const matchesType = selectedType === 'all types' || 
+          (complaint.type && complaint.type.toLowerCase() === selectedType.toLowerCase());
+        
+        const matchesCity = selectedCity === 'all cities' || 
+          (complaint.city && complaint.city.toLowerCase() === selectedCity.toLowerCase());
+        
         return matchesSearch && matchesWard && matchesType && matchesCity;
       }).sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
 
@@ -146,10 +153,10 @@ const PublicComplaints = () => {
               <Filter className="w-5 h-5 mr-2 text-primary" />
               {t('common.filter')} Complaints
             </CardTitle>
-            <CardDescription>Search and filter complaints by city, ward, type, or complaint ID</CardDescription>
+            <CardDescription>Search and filter complaints by city, ward, or type</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <Input
@@ -159,56 +166,63 @@ const PublicComplaints = () => {
                   className="pl-10"
                 />
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                <Input
-                  placeholder="Search by Complaint ID (e.g., HS-123456)"
-                  value={complaintIdSearch}
-                  onChange={(e) => setComplaintIdSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={selectedCity} onValueChange={setSelectedCity}>
+              <Select 
+                value={selectedCity} 
+                onValueChange={setSelectedCity}
+                defaultValue="all cities"
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select city" />
                 </SelectTrigger>
                 <SelectContent>
                   {cities.map((city) => (
-                    <SelectItem key={city} value={city.toLowerCase()}>
+                    <SelectItem 
+                      key={city} 
+                      value={city.toLowerCase()}
+                    >
                       {city}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={selectedWard} onValueChange={setSelectedWard}>
+              <Select 
+                value={selectedWard} 
+                onValueChange={setSelectedWard}
+                defaultValue="all wards"
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select ward" />
                 </SelectTrigger>
                 <SelectContent>
                   {wards.map((ward) => (
-                    <SelectItem key={ward} value={ward.toLowerCase()}>
+                    <SelectItem 
+                      key={ward} 
+                      value={ward.toLowerCase()}
+                    >
                       {ward}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={selectedType} onValueChange={setSelectedType}>
+              <Select 
+                value={selectedType} 
+                onValueChange={setSelectedType}
+                defaultValue="all types"
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
                   {complaintTypes.map((type) => (
-                    <SelectItem key={type} value={type.toLowerCase()}>
+                    <SelectItem 
+                      key={type} 
+                      value={type.toLowerCase()}
+                    >
                       {type}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="mt-4">
-              <Button onClick={handleIdSearch} disabled={loading}>
-                Search by ID
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -237,7 +251,7 @@ const PublicComplaints = () => {
           <div className="mb-6">
             <p className="text-gray-600">
               Showing {filteredComplaints.length} complaint{filteredComplaints.length !== 1 ? 's' : ''}
-              {(selectedCity !== 'all' || selectedWard !== 'all' || selectedType !== 'all' || searchTerm || complaintIdSearch) && ' (filtered)'}
+              {(selectedCity !== 'all cities' || selectedWard !== 'all wards' || selectedType !== 'all types' || searchTerm) && ' (filtered)'}
             </p>
           </div>
         )}
@@ -273,7 +287,6 @@ const PublicComplaints = () => {
                         </Button>
                         <ReportMisuseModal complaintId={complaint.complaintId} />
                       </div>
-                      <span className="text-sm text-gray-500">#{complaint.complaintId}</span>
                     </div>
                   </div>
                 </CardHeader>
