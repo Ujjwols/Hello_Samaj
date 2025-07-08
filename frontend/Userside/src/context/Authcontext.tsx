@@ -73,6 +73,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       navigate('/login');
     }
   };
+  
 
   return (
     <AuthContext.Provider 

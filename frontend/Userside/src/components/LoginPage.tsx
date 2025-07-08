@@ -45,8 +45,6 @@ interface VerifyOTPResponse {
   success: boolean;
   data: {
     loggedInUser: User;
-    accessToken: string;
-    refreshToken: string;
   };
   message: string;
 }
@@ -110,16 +108,14 @@ const LoginPage = () => {
     } catch (error: unknown) {
       if (axios.isAxiosError(error)) {
         toast({
-          title: t("login.missingInfo"),
-          description:
-            (error as AxiosError<ErrorResponse>).response?.data?.message ||
-            t("login.fillAllFields"),
+          title: t("login.error"),
+          description: error.response?.data?.message || t("login.genericError"),
           variant: "destructive",
         });
       } else {
         toast({
-          title: t("login.missingInfo"),
-          description: t("login.fillAllFields"),
+          title: t("login.error"),
+          description: t("login.genericError"),
           variant: "destructive",
         });
       }
@@ -129,59 +125,58 @@ const LoginPage = () => {
   };
 
   const handleOTPSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!formData.otp || !formData.token) {
-    toast({
-      title: t("login.missingInfo"),
-      description: t("login.enterOTP"),
-      variant: "destructive",
-    });
-    return;
-  }
-
-  setIsLoading(true);
-
-  try {
-    const response: AxiosResponse<VerifyOTPResponse> = await axios.post(
-      `${API_BASE_URL}/verify-otp`,
-      {
-        token: formData.token,
-        otp: formData.otp,
-        deliveryMethod: formData.deliveryMethod,
-      },
-      { withCredentials: true }
-    );
-
-    if (response.data.success) {
-      const { loggedInUser } = response.data.data;
-      login(loggedInUser);
+    if (!formData.otp || !formData.token) {
       toast({
-        title: t("login.success"),
-        description: t("login.welcomeBack"),
-      });
-      navigate("/profile");
-    }
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      toast({
-        title: t("login.otpVerificationFailed"),
-        description:
-          (error as AxiosError<ErrorResponse>).response?.data?.message ||
-          t("login.invalidOTP"),
+        title: t("login.missingInfo"),
+        description: t("login.enterOTP"),
         variant: "destructive",
       });
-    } else {
-      toast({
-        title: t("login.otpVerificationFailed"),
-        description: t("login.invalidOTP"),
-        variant: "destructive",
-      });
+      return;
     }
-  } finally {
-    setIsLoading(false);
-  }
-};
+
+    setIsLoading(true);
+
+    try {
+      const response: AxiosResponse<VerifyOTPResponse> = await axios.post(
+        `${API_BASE_URL}/verify-otp`,
+        {
+          token: formData.token,
+          otp: formData.otp,
+          deliveryMethod: formData.deliveryMethod,
+          rememberMe: formData.rememberMe, // Send rememberMe to backend
+        },
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
+        const { loggedInUser } = response.data.data;
+        login(loggedInUser);
+        toast({
+          title: t("login.success"),
+          description: t("login.welcomeBack"),
+        });
+        navigate("/profile");
+      }
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        toast({
+          title: t("login.otpVerificationFailed"),
+          description: error.response?.data?.message || t("login.invalidOTP"),
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: t("login.otpVerificationFailed"),
+          description: t("login.invalidOTP"),
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -269,6 +264,15 @@ const LoginPage = () => {
                     onChange={(e) => handleInputChange("otp", e.target.value)}
                     required
                   />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="remember-otp"
+                    checked={formData.rememberMe}
+                    onCheckedChange={(checked) => handleInputChange("rememberMe", checked as boolean)}
+                  />
+                  <Label htmlFor="remember-otp" className="text-sm">{t("login.rememberMe")}</Label>
                 </div>
 
                 <Button type="submit" className="w-full py-3" disabled={isLoading}>

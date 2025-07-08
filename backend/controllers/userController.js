@@ -16,11 +16,20 @@ const generateAccessTokenAndRefreshToken = async (userId) => {
     if (!user) {
       throw new ApiError(404, "User not found");
     }
+
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
+
+     // Set different expiration based on rememberMe
+    const refreshTokenExpiry = rememberMe 
+      ? Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
+      : Date.now() + 24 * 60 * 60 * 1000; // 1 day
+      
     user.refreshToken = refreshToken;
+    user.refreshTokenExpiry = refreshTokenExpiry;
+
     await user.save({ validateBeforeSave: false });
-    return { accessToken, refreshToken };
+    return { accessToken, refreshToken,refreshTokenExpiry };
   } catch (error) {
     console.error("Error generating tokens:", error);
     throw new ApiError(
@@ -254,14 +263,17 @@ const verifyUserOTPLogin = asyncHandler(async (req, res) => {
       throw new ApiError(403, "This interface is for admin users only");
     }
 
-    const { accessToken, refreshToken } = await generateAccessTokenAndRefreshToken(user._id);
-    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+    const { accessToken, refreshToken, refreshTokenExpiry } = await generateAccessTokenAndRefreshToken(user._id, rememberMe);
+    
 
     const options = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "Lax",
+      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
     };
+
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
 
     return res
       .status(200)
