@@ -8,6 +8,7 @@ const {
   getUserByIdController,
   updateUserController,
   deleteUserController,
+  getCurrentUser
 } = require("../controllers/userController");
 const verifyJWT = require("../middleware/authMiddleware");
 const upload = require("../middleware/multer");
@@ -59,4 +60,5 @@ router.patch(
   updateUserController
 );
 
+router.get("/current-user", verifyJWT, getCurrentUser);
 module.exports = router;

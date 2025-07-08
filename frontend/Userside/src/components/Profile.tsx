@@ -73,19 +73,19 @@ const Profile = () => {
     };
 
     // Fetch user complaints
-    const fetchComplaints = async () => {
+      const fetchComplaints = async () => {
       try {
-        console.log('Fetching complaints for user ID:', user._id);
         const response = await axios.get(`${API_URL}/complaints/get-all-complaints`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
         });
-        console.log('Complaints fetch response:', response.data);
-        setComplaints(response.data.data);
+        const userComplaints = response.data.data.filter(
+          (complaint) => complaint.userId === user._id // or complaint.createdBy === user._id depending on backend schema
+        );
+        setComplaints(userComplaints);
       } catch (error) {
         console.error('Fetch complaints error:', error.response?.data || error.message);
-        // No toast for empty complaints
       }
     };
 

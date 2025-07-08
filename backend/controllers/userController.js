@@ -6,6 +6,7 @@ const { sendOTPController, verifyOTPController } = require("./otpController");
 const { v4: uuidv4 } = require("uuid");
 const { validateUserFiles } = require("../utils/fileValidation");
 const { uploadOnCloudinary } = require("../utils/cloudinary");
+const { get } = require("mongoose");
 const cloudinary = require("cloudinary").v2;
 
 // Generate refresh and access tokens
@@ -493,6 +494,20 @@ const deleteUserController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User deleted successfully"));
 });
 
+const getCurrentUser = asyncHandler(async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select("-password -refreshToken");
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+    return res
+      .status(200)
+      .json(new ApiResponse(200, { user }, "Current user fetched successfully"));
+  } catch (error) {
+    throw new ApiError(500, error.message || "Failed to fetch current user");
+  }
+});
+
 module.exports = {
   registerUserController,
   generateAccessTokenAndRefreshToken,
@@ -503,4 +518,5 @@ module.exports = {
   getUserByIdController,
   updateUserController,
   deleteUserController,
+  getCurrentUser,
 };
