@@ -4,7 +4,7 @@ const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
 const { sendOTPController, verifyOTPController } = require("./otpController");
 const { v4: uuidv4 } = require("uuid");
-const {validateUserFiles} = require("../utils/fileValidation");
+const { validateUserFiles } = require("../utils/fileValidation");
 const { uploadOnCloudinary } = require("../utils/cloudinary");
 const cloudinary = require("cloudinary").v2;
 
@@ -140,16 +140,32 @@ const registerUserController = asyncHandler(async (req, res) => {
     dob: dobDate,
   });
 
-  const createdUser = await User.findById(user._id).select(
-    "-password -refreshToken"
-  );
+  const { accessToken, refreshToken } = await generateAccessTokenAndRefreshToken(user._id);
+  const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
   if (!createdUser) {
-    throw new ApiError(400, "Error while creating user");
+    throw new ApiError(500, "Error while creating user");
   }
+
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
+  };
+
+  console.log('Register response:', { user: createdUser, accessToken, refreshToken });
+
   return res
-    .status(200)
-    .json(new ApiResponse(200, createdUser, "User created successfully"));
+    .status(201)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        201,
+        { user: createdUser, accessToken, refreshToken },
+        "User registered and logged in successfully"
+      )
+    );
 });
 
 // Send OTP for login

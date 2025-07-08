@@ -95,6 +95,11 @@ const complaintSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true, // Require userId to associate complaint with user
+  },
     timeline: {
       type: [
         {

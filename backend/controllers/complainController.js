@@ -53,6 +53,7 @@ const createComplaintController = asyncHandler(async (req, res) => {
     status: "Submitted",
     submittedDate: new Date(),
     lastUpdate: new Date(),
+    userId: req.user?._id,
     timeline: [
       {
         date: new Date(),
@@ -69,6 +70,7 @@ const createComplaintController = asyncHandler(async (req, res) => {
 
 // Get all complaints (accessible to all users)
 const getAllComplaintsController = asyncHandler(async (req, res) => {
+  const query = req.user?.role === "admin" ? {} : { userId: req.user?._id };
   const complaints = await Complaint.find({}).sort({ createdAt: -1 });
 
   if (!complaints.length) {

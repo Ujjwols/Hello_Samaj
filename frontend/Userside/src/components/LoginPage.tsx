@@ -154,7 +154,13 @@ const LoginPage = () => {
       );
 
       if (response.data.success) {
-        login(response.data.data.loggedInUser);
+        const { loggedInUser, accessToken, refreshToken } = response.data.data;
+        console.log('Login response:', { loggedInUser, accessToken, refreshToken });
+        localStorage.setItem('accessToken', accessToken);
+        if (formData.rememberMe) {
+          localStorage.setItem('refreshToken', refreshToken);
+        }
+        login(loggedInUser, accessToken, refreshToken);
         toast({
           title: t("login.success"),
           description: t("login.welcomeBack"),

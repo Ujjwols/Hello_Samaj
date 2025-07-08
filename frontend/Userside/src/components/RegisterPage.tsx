@@ -34,7 +34,11 @@ interface User {
 
 interface RegisterResponse {
   success: boolean;
-  data: User;
+  data: {
+    user: User;
+    accessToken: string;
+    refreshToken: string;
+  };
   message: string;
 }
 
@@ -175,16 +179,23 @@ const RegisterPage = () => {
         formDataToSend,
         {
           headers: { "Content-Type": "multipart/form-data" },
+          withCredentials: true,
         }
       );
 
       if (response.data.success) {
-        login(response.data.data);
+        const { user, accessToken, refreshToken } = response.data.data;
+        console.log('Register response:', { user, accessToken, refreshToken });
+        localStorage.setItem('accessToken', accessToken);
+        if (formData.agreeToTerms) {
+          localStorage.setItem('refreshToken', refreshToken);
+        }
+        login(user, accessToken, refreshToken);
         toast({
           title: t("register.registrationSuccessful"),
-          description: t("register.Pleaselogin"),
+          description: t("register.welcome"),
         });
-        navigate("/login");
+        navigate("/profile");
       }
     } catch (error: unknown) {
       if (isAxiosError<ErrorResponse>(error)) {
