@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -7,73 +7,26 @@ import { Badge } from '@/components/ui/badge';
 import { ThumbsUp, MapPin, Calendar, Filter, Search } from 'lucide-react';
 import ReportMisuseModal from './ReportMisuseModal';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useToast } from '@/components/ui/use-toast';
+import axios from 'axios';
+
+// Define the API base URL
+const API_BASE_URL = 'http://localhost:5000/api/v1/complaints';
 
 const PublicComplaints = () => {
+  const { toast } = useToast();
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedWard, setSelectedWard] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
-  const { t } = useTranslation();
+  const [selectedCity, setSelectedCity] = useState('all');
+  const [complaintIdSearch, setComplaintIdSearch] = useState('');
+  const [complaints, setComplaints] = useState([]);
+  const [singleComplaint, setSingleComplaint] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Mock complaints data
-  const mockComplaints = [
-    {
-      id: 'HS-123456',
-      type: 'Road & Infrastructure',
-      ward: 'Ward 5',
-      location: 'Near Main Chowk',
-      description: 'Large pothole causing traffic issues and vehicle damage.',
-      status: 'In Progress',
-      submittedDate: '2024-06-25',
-      upvotes: 23,
-      priority: 'High'
-    },
-    {
-      id: 'HS-123457',
-      type: 'Water Supply',
-      ward: 'Ward 3',
-      location: 'Residential Area Block A',
-      description: 'Water supply has been irregular for the past week.',
-      status: 'Pending',
-      submittedDate: '2024-06-27',
-      upvotes: 15,
-      priority: 'Medium'
-    },
-    {
-      id: 'HS-123458',
-      type: 'Sanitation & Waste',
-      ward: 'Ward 7',
-      location: 'Market Street',
-      description: 'Garbage collection has been delayed for several days.',
-      status: 'Resolved',
-      submittedDate: '2024-06-20',
-      upvotes: 8,
-      priority: 'Medium'
-    },
-    {
-      id: 'HS-123459',
-      type: 'Public Safety',
-      ward: 'Ward 2',
-      location: 'School Zone',
-      description: 'Broken street lights creating safety concerns.',
-      status: 'In Progress',
-      submittedDate: '2024-06-26',
-      upvotes: 31,
-      priority: 'High'
-    },
-    {
-      id: 'HS-123460',
-      type: 'Environmental Issues',
-      ward: 'Ward 4',
-      location: 'Near River Bank',
-      description: 'Industrial waste being dumped near the river.',
-      status: 'Pending',
-      submittedDate: '2024-06-28',
-      upvotes: 42,
-      priority: 'High'
-    }
-  ];
-
-  const wards = ['All Wards', 'Ward 1', 'Ward 2', 'Ward 3', 'Ward 4', 'Ward 5', 'Ward 6', 'Ward 7'];
+  const wards = ['All Wards', 'Ward 1', 'Ward 2', 'Ward 3', 'Ward 4', 'Ward 5', 'Ward 6', 'Ward 7', 'Ward 8', 'Ward 9', 'Ward 10'];
   const complaintTypes = [
     'All Types',
     'Road & Infrastructure',
@@ -81,37 +34,102 @@ const PublicComplaints = () => {
     'Sanitation & Waste',
     'Electricity',
     'Public Safety',
-    'Environmental Issues'
+    'Healthcare',
+    'Education',
+    'Environmental Issues',
+    'Other',
   ];
+  const cities = ['All Cities', 'Kathmandu', 'Lalitpur', 'Bhaktapur'];
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      'Pending': 'bg-gray-100 text-gray-800',
-      'In Progress': 'bg-yellow-100 text-yellow-800',
-      'Resolved': 'bg-green-100 text-green-800'
-    };
-    
-    return statusConfig[status] || statusConfig['Pending'];
+  // Fetch all complaints
+  const fetchAllComplaints = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/get-all-complaints`);
+      setComplaints(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching complaints:', err);
+      setError(err.response?.data?.message || 'Failed to fetch complaints');
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || 'Failed to fetch complaints',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getPriorityBadge = (priority: string) => {
-    const priorityConfig = {
-      'Low': 'bg-blue-100 text-blue-800',
-      'Medium': 'bg-orange-100 text-orange-800',
-      'High': 'bg-red-100 text-red-800'
+  // Fetch complaint by ID
+  const fetchComplaintById = async (id) => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    setSingleComplaint(null);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/get-complaint/${id}`);
+      setSingleComplaint(response.data.data);
+      setComplaints([]); // Clear other complaints to show only the single result
+    } catch (err) {
+      console.error('Error fetching complaint by ID:', err);
+      setError(err.response?.data?.message || 'Failed to fetch complaint');
+      toast({
+        title: 'Error',
+        description: err.response?.data?.message || 'Failed to fetch complaint',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch all complaints on component mount
+  useEffect(() => {
+    fetchAllComplaints();
+  }, [toast]);
+
+  // Handle search by complaint ID
+  const handleIdSearch = (e) => {
+    e.preventDefault();
+    if (complaintIdSearch.trim()) {
+      fetchComplaintById(complaintIdSearch.trim());
+    } else {
+      fetchAllComplaints(); // Reset to all complaints if ID search is cleared
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      Submitted: 'bg-gray-100 text-gray-800',
+      'Under Review': 'bg-blue-100 text-blue-800',
+      'In Progress': 'bg-yellow-100 text-yellow-800',
+      Resolved: 'bg-green-100 text-green-800',
     };
-    
+    return statusConfig[status] || statusConfig['Submitted'];
+  };
+
+  const getPriorityBadge = (priority) => {
+    const priorityConfig = {
+      Low: 'bg-blue-100 text-blue-800',
+      Medium: 'bg-orange-100 text-orange-800',
+      High: 'bg-red-100 text-red-800',
+    };
     return priorityConfig[priority] || priorityConfig['Medium'];
   };
 
-  const filteredComplaints = mockComplaints.filter(complaint => {
-    const matchesSearch = complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         complaint.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesWard = selectedWard === 'all' || complaint.ward === selectedWard;
-    const matchesType = selectedType === 'all' || complaint.type === selectedType;
-    
-    return matchesSearch && matchesWard && matchesType;
-  }).sort((a, b) => b.upvotes - a.upvotes);
+  const filteredComplaints = singleComplaint
+    ? [singleComplaint]
+    : complaints.filter((complaint) => {
+        const matchesSearch =
+          complaint.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          complaint.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          complaint.complaintId.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesWard = selectedWard === 'all' || complaint.ward.toLowerCase() === selectedWard;
+        const matchesType = selectedType === 'all' || complaint.type.toLowerCase() === selectedType;
+        const matchesCity = selectedCity === 'all' || complaint.city.toLowerCase() === selectedCity;
+        return matchesSearch && matchesWard && matchesType && matchesCity;
+      }).sort((a, b) => (b.upvotes || 0) - (a.upvotes || 0));
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -128,12 +146,10 @@ const PublicComplaints = () => {
               <Filter className="w-5 h-5 mr-2 text-primary" />
               {t('common.filter')} Complaints
             </CardTitle>
-            <CardDescription>
-              Search and filter complaints by location, type, or keywords
-            </CardDescription>
+            <CardDescription>Search and filter complaints by city, ward, type, or complaint ID</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <Input
@@ -143,99 +159,174 @@ const PublicComplaints = () => {
                   className="pl-10"
                 />
               </div>
-              
+              <div className="relative">
+                <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+                <Input
+                  placeholder="Search by Complaint ID (e.g., HS-123456)"
+                  value={complaintIdSearch}
+                  onChange={(e) => setComplaintIdSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={selectedCity} onValueChange={setSelectedCity}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select city" />
+                </SelectTrigger>
+                <SelectContent>
+                  {cities.map((city) => (
+                    <SelectItem key={city} value={city.toLowerCase()}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={selectedWard} onValueChange={setSelectedWard}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select ward" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Wards</SelectItem>
-                  {wards.slice(1).map((ward) => (
-                    <SelectItem key={ward} value={ward}>
+                  {wards.map((ward) => (
+                    <SelectItem key={ward} value={ward.toLowerCase()}>
                       {ward}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              
               <Select value={selectedType} onValueChange={setSelectedType}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  {complaintTypes.slice(1).map((type) => (
-                    <SelectItem key={type} value={type}>
+                  {complaintTypes.map((type) => (
+                    <SelectItem key={type} value={type.toLowerCase()}>
                       {type}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            <div className="mt-4">
+              <Button onClick={handleIdSearch} disabled={loading}>
+                Search by ID
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
+        {/* Loading State */}
+        {loading && (
+          <Card className="text-center animate-fade-in">
+            <CardContent className="py-12">
+              <p className="text-lg text-gray-600">Loading complaints...</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <Card className="text-center animate-fade-in">
+            <CardContent className="py-12">
+              <p className="text-lg text-red-600">{error}</p>
+              <p className="text-gray-600 mt-2">Please try again later.</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Results Count */}
-        <div className="mb-6">
-          <p className="text-gray-600">
-            Showing {filteredComplaints.length} complaint{filteredComplaints.length !== 1 ? 's' : ''}
-            {(selectedWard !== 'all' || selectedType !== 'all' || searchTerm) && ' (filtered)'}
-          </p>
-        </div>
+        {!loading && !error && (
+          <div className="mb-6">
+            <p className="text-gray-600">
+              Showing {filteredComplaints.length} complaint{filteredComplaints.length !== 1 ? 's' : ''}
+              {(selectedCity !== 'all' || selectedWard !== 'all' || selectedType !== 'all' || searchTerm || complaintIdSearch) && ' (filtered)'}
+            </p>
+          </div>
+        )}
 
         {/* Complaints List */}
-        <div className="space-y-6">
-          {filteredComplaints.map((complaint, index) => (
-            <Card key={complaint.id} className="hover:shadow-lg transition-shadow duration-300 animate-fade-in" 
-                  style={{ animationDelay: `${index * 100}ms` }}>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge className={getStatusBadge(complaint.status)}>
-                        {t(`status.${complaint.status.toLowerCase().replace(' ', '')}`)}
-                      </Badge>
-                      <Badge className={getPriorityBadge(complaint.priority)}>
-                        {t(`priority.${complaint.priority.toLowerCase()}`)} Priority
-                      </Badge>
+        {!loading && !error && (
+          <div className="space-y-6">
+            {filteredComplaints.map((complaint, index) => (
+              <Card
+                key={complaint.complaintId}
+                className="hover:shadow-lg transition-shadow duration-300 animate-fade-in"
+                style={{ animationDelay: `${index * 100}ms` }}
+              >
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Badge className={getStatusBadge(complaint.status)}>
+                          {t(`status.${complaint.status.toLowerCase().replace(' ', '')}`)}
+                        </Badge>
+                        <Badge className={getPriorityBadge(complaint.priority)}>
+                          {t(`priority.${complaint.priority.toLowerCase()}`)} Priority
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-xl mb-2">{complaint.type}</CardTitle>
+                      <CardDescription className="text-base">{complaint.description}</CardDescription>
                     </div>
-                    <CardTitle className="text-xl mb-2">{complaint.type}</CardTitle>
-                    <CardDescription className="text-base">
-                      {complaint.description}
-                    </CardDescription>
-                  </div>
-                  
-                  <div className="flex flex-col items-end space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <Button variant="outline" size="sm" className="flex items-center">
-                        <ThumbsUp className="w-4 h-4 mr-1" />
-                        {complaint.upvotes}
-                      </Button>
-                      <ReportMisuseModal complaintId={complaint.id} />
+                    <div className="flex flex-col items-end space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <Button variant="outline" size="sm" className="flex items-center">
+                          <ThumbsUp className="w-4 h-4 mr-1" />
+                          {complaint.upvotes || 0}
+                        </Button>
+                        <ReportMisuseModal complaintId={complaint.complaintId} />
+                      </div>
+                      <span className="text-sm text-gray-500">#{complaint.complaintId}</span>
                     </div>
-                    <span className="text-sm text-gray-500">#{complaint.id}</span>
                   </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent>
-                <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    <span>{complaint.location}, {complaint.ward}</span>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center">
+                      <MapPin className="w-4 h-4 mr-1" />
+                      <span>
+                        {complaint.location}, {complaint.ward}, {complaint.city}
+                        {complaint.latitude && complaint.longitude
+                          ? ` (${complaint.latitude}, ${complaint.longitude})`
+                          : ''}
+                      </span>
+                    </div>
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 mr-1" />
+                      <span>Submitted: {new Date(complaint.submittedDate).toLocaleDateString()}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    <span>Submitted: {complaint.submittedDate}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  {complaint.files && complaint.files.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-gray-700">Attachments:</h4>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {complaint.files.map((file, idx) => (
+                          <a
+                            key={idx}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:underline"
+                          >
+                            {file.type === 'image' ? (
+                              <img
+                                src={file.url}
+                                alt="Attachment"
+                                className="w-20 h-20 object-cover rounded"
+                              />
+                            ) : (
+                              `View ${file.type}`
+                            )}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* No Results */}
-        {filteredComplaints.length === 0 && (
+        {!loading && !error && filteredComplaints.length === 0 && (
           <Card className="text-center animate-fade-in">
             <CardContent className="py-12">
               <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />

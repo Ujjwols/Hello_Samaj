@@ -52,12 +52,10 @@ app.use(cookieParser());
 
 // Routers
 const userRouter = require('./routes/userRoutes');
-// const eventRouter = require('./routes/eventRoutes');
-// const galleryRouter = require('./routes/galeryRoutes');
+const complainRouter = require('./routes/complainRoutes');
 
 app.use('/api/v1/users', userRouter);
-// app.use('/api/v1/event', eventRouter);
-// app.use('/api/v1/gallery', galleryRouter);
+app.use('/api/v1/complaints', complainRouter);
 
 
 

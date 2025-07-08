@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,10 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/components/ui/use-toast';
 import { Upload, MapPin, AlertCircle } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
 import LocationPicker from './LocationPicker';
+import axios from 'axios';
+
+// Define the API base URL
+const API_BASE_URL = 'http://localhost:5000/api/v1/complaints';
 
 const SubmitComplaint = () => {
   const { toast } = useToast();
@@ -18,6 +21,7 @@ const SubmitComplaint = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; address: string } | undefined>();
+  const [files, setFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
     type: '',
     ward: '',
@@ -26,6 +30,8 @@ const SubmitComplaint = () => {
     phone: '',
     email: '',
     location: '',
+    city: '',
+    tole: '',
   });
 
   const complaintTypes = [
@@ -37,60 +43,103 @@ const SubmitComplaint = () => {
     'Healthcare',
     'Education',
     'Environmental Issues',
-    'Other'
+    'Other',
   ];
 
   const wards = [
     'Ward 1', 'Ward 2', 'Ward 3', 'Ward 4', 'Ward 5',
-    'Ward 6', 'Ward 7', 'Ward 8', 'Ward 9', 'Ward 10'
+    'Ward 6', 'Ward 7', 'Ward 8', 'Ward 9', 'Ward 10',
   ];
+
+  const cities = ['Kathmandu', 'Lalitpur', 'Bhaktapur'];
 
   const handleLocationSelect = (location: { lat: number; lng: number; address: string }) => {
     setSelectedLocation(location);
     setFormData(prev => ({ ...prev, location: location.address }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files).slice(0, 10); // Limit to 10 files
+      setFiles(selectedFiles);
+    }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.type || !formData.ward || !formData.description) {
+
+    if (!formData.type || !formData.ward || !formData.description || !formData.city) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields (Complaint Type, Ward, Description, City).",
         variant: "destructive",
       });
       return;
     }
 
     setIsSubmitting(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const complaintId = `HS-${Date.now().toString().slice(-6)}`;
-    
-    toast({
-      title: "Complaint Submitted Successfully!",
-      description: `Your complaint ID is: ${complaintId}. Keep this for tracking.`,
-    });
-    
-    setIsSubmitting(false);
-    
-    // Reset form
-    setFormData({
-      type: '',
-      ward: '',
-      description: '',
-      name: '',
-      phone: '',
-      email: '',
-      location: '',
-    });
-    setSelectedLocation(undefined);
-  };
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('type', formData.type);
+      formDataToSend.append('ward', formData.ward);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('city', formData.city);
+      formDataToSend.append('tole', formData.tole);
+      formDataToSend.append('location', formData.location);
+      formDataToSend.append('isAnonymous', isAnonymous.toString());
+      
+      if (!isAnonymous) {
+        formDataToSend.append('name', formData.name);
+        formDataToSend.append('phone', formData.phone);
+        formDataToSend.append('email', formData.email);
+      }
+
+      files.forEach((file, index) => {
+        formDataToSend.append('files', file);
+      });
+
+      const response = await axios.post(`${API_BASE_URL}/create-complaint`, formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const { complaintId } = response.data.data;
+
+      toast({
+        title: "Complaint Submitted Successfully!",
+        description: `Your complaint ID is: ${complaintId}. Keep this for tracking.`,
+      });
+
+      // Reset form
+      setFormData({
+        type: '',
+        ward: '',
+        description: '',
+        name: '',
+        phone: '',
+        email: '',
+        location: '',
+        city: '',
+        tole: '',
+      });
+      setSelectedLocation(undefined);
+      setFiles([]);
+    } catch (error) {
+      console.error('Error submitting complaint:', error);
+      toast({
+        title: "Submission Failed",
+        description: error.response?.data?.message || "An error occurred while submitting your complaint.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -105,7 +154,7 @@ const SubmitComplaint = () => {
           {/* Complaint Form */}
           <Card className="animate-fade-in">
             <CardHeader>
-              <CardTitle className="flex items-center">
+              <CardTitle className="flex items-center" style={{ animationDelay: '100ms' }}>
                 <AlertCircle className="w-5 h-5 mr-2 text-primary" />
                 Complaint Details
               </CardTitle>
@@ -132,6 +181,23 @@ const SubmitComplaint = () => {
                   </Select>
                 </div>
 
+                {/* City */}
+                <div className="space-y-2">
+                  <Label htmlFor="city">City *</Label>
+                  <Select value={formData.city} onValueChange={(value) => handleInputChange('city', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your city" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cities.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {/* Ward/Municipality */}
                 <div className="space-y-2">
                   <Label htmlFor="ward">Ward/Municipality *</Label>
@@ -147,6 +213,17 @@ const SubmitComplaint = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Tole */}
+                <div className="space-y-2">
+                  <Label htmlFor="tole">Tole</Label>
+                  <Input
+                    id="tole"
+                    placeholder="e.g., Thamel"
+                    value={formData.tole}
+                    onChange={(e) => handleInputChange('tole', e.target.value)}
+                  />
                 </div>
 
                 {/* Location */}
@@ -183,9 +260,24 @@ const SubmitComplaint = () => {
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-primary transition-colors">
                     <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-600 mb-2">Click to upload or drag and drop</p>
-                    <p className="text-xs text-gray-500">PNG, JPG, MP4 up to 10MB</p>
-                    <input type="file" className="hidden" multiple accept="image/*,video/*" />
+                    <p className="text-xs text-gray-500">PNG, JPG, MP4 up to 10MB (Max 10 files)</p>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <span className="text-sm text-primary hover:underline">Choose files</span>
+                    </label>
                   </div>
+                  {files.length > 0 && (
+                    <div className="text-sm text-gray-600">
+                      Selected files: {files.map(file => file.name).join(', ')}
+                    </div>
+                  )}
                 </div>
 
                 {/* Anonymous Option */}
@@ -193,7 +285,7 @@ const SubmitComplaint = () => {
                   <Checkbox
                     id="anonymous"
                     checked={isAnonymous}
-                    onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
+                    onCheckedChange={(checked) => setIsAnonymous(checked === true)}
                   />
                   <Label htmlFor="anonymous">Submit as anonymous (no contact information required)</Label>
                 </div>
@@ -203,7 +295,6 @@ const SubmitComplaint = () => {
                   <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
                     <h3 className="font-medium text-gray-900">Contact Information (Optional)</h3>
                     <p className="text-sm text-gray-600">Providing contact details helps us update you on progress.</p>
-                    
                     <div className="grid grid-cols-1 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="name">Full Name</Label>
@@ -238,8 +329,8 @@ const SubmitComplaint = () => {
                 )}
 
                 {/* Submit Button */}
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full py-3 text-lg"
                   disabled={isSubmitting}
                 >
