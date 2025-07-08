@@ -1,5 +1,5 @@
-
 import { useState } from 'react';
+import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,33 +15,65 @@ const FeedbackPage = () => {
     type: '',
     subject: '',
     message: '',
+    email: '',
     anonymous: false
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsSubmitted(true);
+    setIsLoading(true);
+
+    if (!formData.anonymous && !formData.email) {
       toast({
-        title: "Feedback Submitted",
-        description: "Thank you for your feedback. We'll review it soon.",
+        title: "Error",
+        description: "Please provide an email address for non-anonymous feedback.",
+        variant: "destructive",
       });
-      
-      // Reset form after showing success
-      setTimeout(() => {
-        setIsSubmitted(false);
-        setFormData({
-          type: '',
-          subject: '',
-          message: '',
-          anonymous: false
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const response = await axios.post(
+        'http://localhost:5000/api/v1/feedbacks/submit-feedback',
+        formData,
+        {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.status === 201) {
+        setIsSubmitted(true);
+        toast({
+          title: "Feedback Submitted",
+          description: "Thank you for your feedback. We'll review it soon.",
         });
-      }, 3000);
-    }, 1000);
+
+        setTimeout(() => {
+          setIsSubmitted(false);
+          setFormData({
+            type: '',
+            subject: '',
+            message: '',
+            email: '',
+            anonymous: false
+          });
+        }, 3000);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to submit feedback. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isSubmitted) {
@@ -56,9 +88,6 @@ const FeedbackPage = () => {
               </h2>
               <p className="text-gray-600 mb-6">
                 Your feedback has been submitted successfully. Our team will review it and take appropriate action.
-              </p>
-              <p className="text-sm text-gray-500">
-                You will be redirected back to the form shortly...
               </p>
             </CardContent>
           </Card>
@@ -84,14 +113,21 @@ const FeedbackPage = () => {
               Submit Feedback
             </CardTitle>
             <CardDescription>
-              Your input helps us make Hello Samaj better for everyone
+              Your input helps us make Hello Samaj better for everyone. You can also email feedback to{' '}
+              <a href="mailto:hellosamaj@gmail.com" className="text-primary underline">
+                hellosamaj@gmail.com
+              </a>.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="type">Type</Label>
-                <Select value={formData.type} onValueChange={(value) => setFormData({...formData, type: value})}>
+                <Select
+                  value={formData.type}
+                  onValueChange={(value) => setFormData({ ...formData, type: value })}
+                  required
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select feedback type" />
                   </SelectTrigger>
@@ -109,7 +145,7 @@ const FeedbackPage = () => {
                 <Input
                   id="subject"
                   value={formData.subject}
-                  onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                   placeholder="Brief description of your feedback"
                   required
                 />
@@ -120,25 +156,44 @@ const FeedbackPage = () => {
                 <Textarea
                   id="message"
                   value={formData.message}
-                  onChange={(e) => setFormData({...formData, message: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                   placeholder="Please provide detailed feedback or suggestions..."
                   rows={6}
                   required
                 />
               </div>
 
+              {!formData.anonymous && (
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email (Optional)</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="Your email address"
+                  />
+                </div>
+              )}
+
               <div className="flex items-center space-x-2">
                 <Switch
                   id="anonymous"
                   checked={formData.anonymous}
-                  onCheckedChange={(checked) => setFormData({...formData, anonymous: checked})}
+                  onCheckedChange={(checked) => setFormData({ ...formData, anonymous: checked, email: checked ? '' : formData.email })}
                 />
                 <Label htmlFor="anonymous">Submit anonymously</Label>
               </div>
 
-              <Button type="submit" className="w-full">
-                <Send className="w-4 h-4 mr-2" />
-                Submit Feedback
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? (
+                  "Sending..."
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Submit Feedback
+                  </>
+                )}
               </Button>
             </form>
           </CardContent>

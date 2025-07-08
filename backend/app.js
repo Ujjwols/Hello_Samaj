@@ -53,9 +53,11 @@ app.use(cookieParser());
 // Routers
 const userRouter = require('./routes/userRoutes');
 const complainRouter = require('./routes/complainRoutes');
+const feedbackRouter = require('./routes/feedbackRoutes');
 
 app.use('/api/v1/users', userRouter);
 app.use('/api/v1/complaints', complainRouter);
+app.use('/api/v1/feedbacks', feedbackRouter);
 
 
 
