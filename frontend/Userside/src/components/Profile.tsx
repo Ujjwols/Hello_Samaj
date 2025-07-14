@@ -25,12 +25,24 @@ interface Complaint {
   userId: string;
 }
 
+interface UserInfo {
+  fullname: string;
+  email: string;
+  phoneNumber: string;
+  city: string;
+  wardNumber: string;
+  tole: string;
+  gender: string;
+  dob: string;
+  profilePic?: string; // Added profilePic to userInfo
+}
+
 const Profile = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
-  const [userInfo, setUserInfo] = useState({
+  const [userInfo, setUserInfo] = useState<UserInfo>({
     fullname: '',
     email: '',
     phoneNumber: '',
@@ -39,7 +51,9 @@ const Profile = () => {
     tole: '',
     gender: '',
     dob: '',
+    profilePic: '',
   });
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null); // For profile picture updates
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -52,11 +66,11 @@ const Profile = () => {
 
       try {
         setIsLoading(true);
-        
+
         // Fetch user details
         const userResponse = await axios.get(`${API_URL}/users/get-user/${user._id}`);
-        const { fullname, email, phoneNumber, city, wardNumber, tole, gender, dob } = userResponse.data.data;
-        
+        const { fullname, email, phoneNumber, city, wardNumber, tole, gender, dob, profilePic } = userResponse.data.data;
+
         setUserInfo({
           fullname: fullname || '',
           email: email || '',
@@ -66,6 +80,7 @@ const Profile = () => {
           tole: tole || '',
           gender: gender || '',
           dob: dob ? new Date(dob).toISOString().split('T')[0] : '',
+          profilePic: profilePic || '', // Set profile picture
         });
 
         // Fetch complaints
@@ -76,7 +91,7 @@ const Profile = () => {
         setComplaints(userComplaints);
       } catch (error) {
         console.error('Fetch error:', error);
-        
+
         if (axios.isAxiosError(error)) {
           if (error.response?.status === 401) {
             toast({
@@ -88,7 +103,7 @@ const Profile = () => {
             navigate('/login');
             return;
           }
-          
+
           toast({
             title: 'Error',
             description: error.response?.data?.message || 'Failed to fetch data',
@@ -112,16 +127,35 @@ const Profile = () => {
   const handleSave = async () => {
     try {
       setIsLoading(true);
+      const formData = new FormData();
+      
+      // Append text fields
+      Object.entries(userInfo).forEach(([key, value]) => {
+        if (key !== 'profilePic') {
+          formData.append(key, value);
+        }
+      });
+
+      // Append profile picture if updated
+      if (profilePicFile) {
+        formData.append('profilePic', profilePicFile);
+      }
+
       const response = await axios.patch(
         `${API_URL}/users/update-user/${user?._id}`,
-        userInfo
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
       );
 
       toast({
         title: 'Profile Updated',
         description: 'Your profile information has been saved.',
       });
-      
+
       setUserInfo({
         fullname: response.data.data.fullname || '',
         email: response.data.data.email || '',
@@ -131,11 +165,13 @@ const Profile = () => {
         tole: response.data.data.tole || '',
         gender: response.data.data.gender || '',
         dob: response.data.data.dob ? new Date(response.data.data.dob).toISOString().split('T')[0] : '',
+        profilePic: response.data.data.profilePic || '',
       });
+      setProfilePicFile(null); // Reset profile picture file
       setIsEditing(false);
     } catch (error) {
       console.error('Update error:', error);
-      
+
       if (axios.isAxiosError(error)) {
         toast({
           title: 'Error',
@@ -156,6 +192,7 @@ const Profile = () => {
 
   const handleCancel = () => {
     setIsEditing(false);
+    setProfilePicFile(null); // Reset profile picture file
   };
 
   const handleLogout = async () => {
@@ -183,7 +220,7 @@ const Profile = () => {
       });
     } catch (error) {
       console.error('Delete error:', error);
-      
+
       if (axios.isAxiosError(error)) {
         toast({
           title: 'Error',
@@ -244,31 +281,62 @@ const Profile = () => {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          {/* Personal Information Card */}
-          <div className="lg:col-span-1">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Personal Information</CardTitle>
-                {!isEditing ? (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                    <Edit className="w-4 h-4 mr-2" />
-                    Edit
-                  </Button>
-                ) : (
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" onClick={handleSave}>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={handleCancel}>
-                      <X className="w-4 h-4 mr-2" />
-                      Cancel
-                    </Button>
+        {/* Personal Information Section */}
+        <Card className="mb-8">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Personal Information</CardTitle>
+            {!isEditing ? (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            ) : (
+              <div className="flex space-x-2">
+                <Button variant="outline" size="sm" onClick={handleSave}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleCancel}>
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel
+                </Button>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Profile Picture */}
+              <div className="flex-shrink-0">
+                {isEditing ? (
+                  <div>
+                    <img
+                      src={userInfo.profilePic || 'https://via.placeholder.com/150'}
+                      alt="Profile"
+                      className="w-32 h-32 rounded-full object-cover"
+                    />
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      className="mt-2"
+                      onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                          setProfilePicFile(e.target.files[0]);
+                          setUserInfo({ ...userInfo, profilePic: URL.createObjectURL(e.target.files[0]) });
+                        }
+                      }}
+                    />
                   </div>
+                ) : (
+                  <img
+                    src={userInfo.profilePic || 'https://via.placeholder.com/150'}
+                    alt="Profile"
+                    className="w-32 h-32 rounded-full object-cover"
+                  />
                 )}
-              </CardHeader>
-              <CardContent className="space-y-4">
+              </div>
+
+              {/* Personal Information Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
                 {Object.entries({
                   fullname: 'Full Name',
                   email: 'Email',
@@ -277,7 +345,7 @@ const Profile = () => {
                   wardNumber: 'Ward Number',
                   tole: 'Tole',
                   gender: 'Gender',
-                  dob: 'Date of Birth'
+                  dob: 'Date of Birth',
                 }).map(([key, label]) => (
                   <div key={key}>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -285,7 +353,7 @@ const Profile = () => {
                       key === 'gender' ? (
                         <select
                           value={userInfo.gender}
-                          onChange={(e) => setUserInfo({...userInfo, gender: e.target.value})}
+                          onChange={(e) => setUserInfo({ ...userInfo, gender: e.target.value })}
                           className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                         >
                           <option value="">Select Gender</option>
@@ -296,111 +364,109 @@ const Profile = () => {
                         <Input
                           type="date"
                           value={userInfo.dob}
-                          onChange={(e) => setUserInfo({...userInfo, dob: e.target.value})}
+                          onChange={(e) => setUserInfo({ ...userInfo, dob: e.target.value })}
                         />
                       ) : (
                         <Input
                           value={userInfo[key as keyof typeof userInfo] as string}
-                          onChange={(e) => setUserInfo({...userInfo, [key]: e.target.value})}
+                          onChange={(e) => setUserInfo({ ...userInfo, [key]: e.target.value })}
                           type={key === 'email' ? 'email' : 'text'}
                         />
                       )
                     ) : (
                       <p className="text-gray-900">
-                        {key === 'dob' && userInfo.dob 
-                          ? new Date(userInfo.dob).toLocaleDateString() 
+                        {key === 'dob' && userInfo.dob
+                          ? new Date(userInfo.dob).toLocaleDateString()
                           : userInfo[key as keyof typeof userInfo] || 'N/A'}
                       </p>
                     )}
                   </div>
                 ))}
-              </CardContent>
-            </Card>
-          </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-          {/* Complaints Card */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>My Complaints</CardTitle>
-                <p className="text-sm text-gray-600">Track the status of your submitted complaints</p>
-              </CardHeader>
-              <CardContent>
-                {complaints.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>ID</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Description</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Priority</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {complaints.map((complaint) => (
-                          <TableRow key={complaint.complaintId}>
-                            <TableCell className="font-medium">{complaint.complaintId}</TableCell>
-                            <TableCell><Badge variant="outline">{complaint.type}</Badge></TableCell>
-                            <TableCell className="max-w-xs truncate" title={complaint.description}>
-                              {complaint.description}
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getStatusColor(complaint.status)}>
-                                {complaint.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={getPriorityColor(complaint.priority)}>
-                                {complaint.priority}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {new Date(complaint.submittedDate).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  title="View Details"
-                                  onClick={() => navigate(`/complaint/${complaint.complaintId}`)}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </Button>
-                                {complaint.status === 'Submitted' && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    title="Delete"
-                                    className="text-red-600 hover:text-red-700"
-                                    onClick={() => handleDeleteComplaint(complaint.complaintId)}
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                )}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No complaints submitted yet.</p>
-                    <Button className="mt-4" onClick={() => navigate('/submit')}>
-                      Submit Your First Complaint
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+        {/* Complaints Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>My Complaints</CardTitle>
+            <p className="text-sm text-gray-600">Track the status of your submitted complaints</p>
+          </CardHeader>
+          <CardContent>
+            {complaints.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Priority</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {complaints.map((complaint) => (
+                      <TableRow key={complaint.complaintId}>
+                        <TableCell className="font-medium">{complaint.complaintId}</TableCell>
+                        <TableCell><Badge variant="outline">{complaint.type}</Badge></TableCell>
+                        <TableCell className="max-w-xs truncate" title={complaint.description}>
+                          {complaint.description}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getStatusColor(complaint.status)}>
+                            {complaint.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={getPriorityColor(complaint.priority)}>
+                            {complaint.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {new Date(complaint.submittedDate).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              title="View Details"
+                              onClick={() => navigate(`/complaint/${complaint.complaintId}`)}
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
+                            {complaint.status === 'Submitted' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                title="Delete"
+                                className="text-red-600 hover:text-red-700"
+                                onClick={() => handleDeleteComplaint(complaint.complaintId)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-500">No complaints submitted yet.</p>
+                <Button className="mt-4" onClick={() => navigate('/submit')}>
+                  Submit Your First Complaint
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

@@ -471,12 +471,13 @@ const updateUserController = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
 
-  if (req.user.role !== "super_admin") {
-    throw new ApiError(403, "Only super admins can update users");
+  // Check if the user is either a super_admin or the owner of the profile
+  if (req.user.role !== "super_admin" && req.user._id.toString() !== id) {
+    throw new ApiError(403, "You are not authorized to update this user");
   }
 
-  delete updateData.password;
-  delete updateData.refreshToken;
+  delete updateData.password; // Prevent password updates through this endpoint
+  delete updateData.refreshToken; // Prevent refresh token updates
 
   const user = await User.findById(id);
   if (!user) {
@@ -561,11 +562,19 @@ const updateUserController = asyncHandler(async (req, res) => {
     }
     updateData.dob = dobDate;
   }
-  if (updateData.role && !["user", "super_admin", "ward_admin"].includes(updateData.role)) {
-    throw new ApiError(400, "Invalid role");
-  }
-  if (updateData.role === "ward_admin" && (!updateData.assignedWards || !Array.isArray(updateData.assignedWards) || updateData.assignedWards.length === 0)) {
-    throw new ApiError(400, "Ward admins must have at least one assigned ward");
+
+  // Prevent non-super_admins from updating role or assignedWards
+  if (req.user.role !== "super_admin") {
+    delete updateData.role;
+    delete updateData.assignedWards;
+  } else {
+    // Super admin can update role and assignedWards, with validation
+    if (updateData.role && !["user", "super_admin", "ward_admin"].includes(updateData.role)) {
+      throw new ApiError(400, "Invalid role");
+    }
+    if (updateData.role === "ward_admin" && (!updateData.assignedWards || !Array.isArray(updateData.assignedWards) || updateData.assignedWards.length === 0)) {
+      throw new ApiError(400, "Ward admins must have at least one assigned ward");
+    }
   }
 
   Object.assign(user, updateData);
