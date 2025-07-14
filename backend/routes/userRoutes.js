@@ -3,14 +3,17 @@ const {
   registerUserController,
   sendOTPVerificationLogin,
   verifyUserOTPLogin,
+  sendAdminOTPVerificationLogin,
+  verifyAdminUserOTPLogin,
   logoutUserController,
   getAllUsersController,
   getUserByIdController,
   updateUserController,
   deleteUserController,
-  getCurrentUser
+  getCurrentUser,
 } = require("../controllers/userController");
 const verifyJWT = require("../middleware/authMiddleware");
+const verifyAdmin = require("../middleware/verifyAdmin");
 const upload = require("../middleware/multer");
 const ApiResponse = require("../utils/ApiResponse");
 
@@ -27,6 +30,8 @@ router.post(
 );
 router.post("/send-otp", sendOTPVerificationLogin);
 router.post("/verify-otp", verifyUserOTPLogin);
+router.post("/admin/send-otp", sendAdminOTPVerificationLogin);
+router.post("/admin/verify-otp",verifyAdminUserOTPLogin);
 
 // Protected routes
 router.post("/logout", verifyJWT, logoutUserController);
@@ -44,15 +49,16 @@ router.get("/check-auth", verifyJWT, async (req, res) => {
     .json(new ApiResponse(200, req.user, "User is authenticated"));
 });
 
-// Admin-only routes
-router.get("/get-all-users", verifyJWT, getAllUsersController);
-router.delete("/delete-user/:id", verifyJWT, deleteUserController);
+// Admin-only routes (super_admin only for user management)
+router.get("/get-all-users", verifyJWT, verifyAdmin, getAllUsersController);
+router.delete("/delete-user/:id", verifyJWT, verifyAdmin, deleteUserController);
 
 // Authenticated user routes
 router.get("/get-user/:id", verifyJWT, getUserByIdController);
 router.patch(
   "/update-user/:id",
   verifyJWT,
+  verifyAdmin,
   upload.fields([
     { name: "profilePic", maxCount: 1 },
     { name: "additionalFile", maxCount: 1 },
@@ -61,4 +67,5 @@ router.patch(
 );
 
 router.get("/current-user", verifyJWT, getCurrentUser);
+
 module.exports = router;

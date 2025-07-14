@@ -6,7 +6,6 @@ const { sendOTPController, verifyOTPController } = require("./otpController");
 const { v4: uuidv4 } = require("uuid");
 const { validateUserFiles } = require("../utils/fileValidation");
 const { uploadOnCloudinary } = require("../utils/cloudinary");
-const { get } = require("mongoose");
 const cloudinary = require("cloudinary").v2;
 
 // Generate refresh and access tokens
@@ -20,7 +19,6 @@ const generateAccessTokenAndRefreshToken = async (userId, rememberMe = false) =>
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
-    // Set different expiration based on rememberMe
     const refreshTokenExpiry = rememberMe 
       ? Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
       : Date.now() + 24 * 60 * 60 * 1000; // 1 day
@@ -41,7 +39,7 @@ const generateAccessTokenAndRefreshToken = async (userId, rememberMe = false) =>
 
 // Register a new user
 const registerUserController = asyncHandler(async (req, res) => {
-  const { fullname, email, phoneNumber, password, city, wardNumber, tole, gender, dob } = req.body;
+  const { fullname, email, phoneNumber, password, city, wardNumber, tole, gender, dob, role, assignedWards } = req.body;
 
   const requiredFields = {
     fullname,
@@ -60,12 +58,10 @@ const registerUserController = asyncHandler(async (req, res) => {
     }
   }
 
-  // Validate email
   if (!email.endsWith("@gmail.com")) {
     throw new ApiError(400, "Email must be a valid Gmail address");
   }
 
-  // Validate password
   const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/;
   if (!passwordRegex.test(password)) {
     throw new ApiError(
@@ -74,12 +70,10 @@ const registerUserController = asyncHandler(async (req, res) => {
     );
   }
 
-  // Validate city
   if (!["Kathmandu", "Lalitpur", "Bhaktapur"].includes(city)) {
     throw new ApiError(400, "City must be Kathmandu, Lalitpur, or Bhaktapur");
   }
 
-  // Validate ward number
   const wardNum = parseInt(wardNumber);
   if (city === "Kathmandu" && (wardNum < 1 || wardNum > 32)) {
     throw new ApiError(400, "Ward number for Kathmandu must be between 1 and 32");
@@ -91,15 +85,20 @@ const registerUserController = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Ward number for Bhaktapur must be between 1 and 10");
   }
 
-  // Validate gender
   if (!["male", "female"].includes(gender.toLowerCase())) {
     throw new ApiError(400, "Gender must be male or female");
   }
 
-  // Validate DOB
   const dobDate = new Date(dob);
   if (isNaN(dobDate.getTime()) || dobDate > new Date()) {
     throw new ApiError(400, "Invalid date of birth");
+  }
+
+  if (role && !["user", "super_admin", "ward_admin"].includes(role)) {
+    throw new ApiError(400, "Invalid role");
+  }
+  if (role === "ward_admin" && (!assignedWards || !Array.isArray(assignedWards) || assignedWards.length === 0)) {
+    throw new ApiError(400, "Ward admins must have at least one assigned ward");
   }
 
   const existingUser = await User.findOne({
@@ -110,10 +109,8 @@ const registerUserController = asyncHandler(async (req, res) => {
     throw new ApiError(400, "User already exists with this email or phone number");
   }
 
-  // Validate file uploads
   validateUserFiles(req.files);
 
-  // Upload profile picture to Cloudinary
   let profilePicUrl = "";
   if (!req.files.profilePic) {
     throw new ApiError(400, "Profile picture is required");
@@ -132,7 +129,6 @@ const registerUserController = asyncHandler(async (req, res) => {
     throw new ApiError(500, `Profile picture upload failed: ${error.message}`);
   }
 
-  // Upload additional file to Cloudinary (if provided)
   let files = [];
   if (req.files.additionalFile) {
     try {
@@ -153,7 +149,6 @@ const registerUserController = asyncHandler(async (req, res) => {
     }
   }
 
-  // Create user
   const user = await User.create({
     ...requiredFields,
     username: fullname.toLowerCase().replace(/\s+/g, "_"),
@@ -162,9 +157,11 @@ const registerUserController = asyncHandler(async (req, res) => {
     tole: tole || "",
     gender: gender.toLowerCase(),
     dob: dobDate,
+    role: role || "user",
+    assignedWards: role === "ward_admin" ? assignedWards : [],
   });
 
-  const { accessToken, refreshToken, refreshTokenExpiry } = await generateAccessTokenAndRefreshToken(user._id, false); // Default to short session
+  const { accessToken, refreshToken, refreshTokenExpiry } = await generateAccessTokenAndRefreshToken(user._id, false);
   const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
   if (!createdUser) {
@@ -175,10 +172,8 @@ const registerUserController = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "Lax",
-    maxAge: 24 * 60 * 60 * 1000, // 1 day for registration
+    maxAge: 24 * 60 * 60 * 1000,
   };
-
-  console.log('Register response:', { user: createdUser, accessToken, refreshToken });
 
   return res
     .status(201)
@@ -193,7 +188,7 @@ const registerUserController = asyncHandler(async (req, res) => {
     );
 });
 
-// Send OTP for login
+// Send OTP for user login
 const sendOTPVerificationLogin = asyncHandler(async (req, res) => {
   const { email, password, deliveryMethod } = req.body;
 
@@ -207,10 +202,6 @@ const sendOTPVerificationLogin = asyncHandler(async (req, res) => {
   const user = await User.findOne({ email });
   if (!user) {
     throw new ApiError(400, "User does not exist");
-  }
-
-  if (req.headers["x-admin-frontend"] === "true" && user.role !== "admin") {
-    throw new ApiError(403, "Not an admin user from this frontend");
   }
 
   const isPasswordValid = await user.isPasswordCorrect(password);
@@ -249,7 +240,7 @@ const sendOTPVerificationLogin = asyncHandler(async (req, res) => {
   }
 });
 
-// Verify OTP and login
+// Verify OTP for user login
 const verifyUserOTPLogin = asyncHandler(async (req, res) => {
   const { token, otp, deliveryMethod, rememberMe } = req.body;
 
@@ -272,10 +263,6 @@ const verifyUserOTPLogin = asyncHandler(async (req, res) => {
     );
     if (!user) {
       throw new ApiError(404, "User not found");
-    }
-
-    if (req.headers["x-admin-frontend"] === "true" && user.role !== "admin") {
-      throw new ApiError(403, "This interface is for admin users only");
     }
 
     const { accessToken, refreshToken, refreshTokenExpiry } = await generateAccessTokenAndRefreshToken(user._id, rememberMe);
@@ -302,6 +289,117 @@ const verifyUserOTPLogin = asyncHandler(async (req, res) => {
       );
   } catch (error) {
     console.error("Error in verifyUserOTPLogin:", error);
+    throw error;
+  }
+});
+
+// Send OTP for admin login
+const sendAdminOTPVerificationLogin = asyncHandler(async (req, res) => {
+  const { email, password, deliveryMethod } = req.body;
+
+  if (!email || !password || !deliveryMethod) {
+    throw new ApiError(400, "Email, password, and delivery method are required");
+  }
+  if (!["sms", "email"].includes(deliveryMethod)) {
+    throw new ApiError(400, "Invalid delivery method. Use sms or email");
+  }
+
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw new ApiError(400, "User does not exist");
+  }
+  if (!["super_admin", "ward_admin"].includes(user.role)) {
+    throw new ApiError(403, "This endpoint is for admin users only");
+  }
+
+  const isPasswordValid = await user.isPasswordCorrect(password);
+  if (!isPasswordValid) {
+    throw new ApiError(400, "Invalid password");
+  }
+
+  const identifier = deliveryMethod === "sms" ? user.phoneNumber : user.email;
+  if (!identifier) {
+    throw new ApiError(
+      400,
+      `User does not have a ${deliveryMethod === "sms" ? "phone number" : "email"} registered`
+    );
+  }
+
+  try {
+    const { token, identifier: returnedIdentifier, deliveryMethod: returnedMethod, message } =
+      await sendOTPController({
+        identifier,
+        deliveryMethod,
+      });
+    return res
+      .status(200)
+      .json(
+        new ApiResponse(
+          200,
+          { token, identifier: returnedIdentifier, deliveryMethod: returnedMethod },
+          message
+        )
+      );
+  } catch (error) {
+    throw new ApiError(
+      error.statusCode || 500,
+      error.message || "Failed to send OTP"
+    );
+  }
+});
+
+// Verify OTP for admin login
+const verifyAdminUserOTPLogin = asyncHandler(async (req, res) => {
+  const { token, otp, deliveryMethod, rememberMe } = req.body;
+
+  if (!token || !otp || !deliveryMethod) {
+    throw new ApiError(400, "Token, OTP, and delivery method are required");
+  }
+  if (!["sms", "email"].includes(deliveryMethod)) {
+    throw new ApiError(400, "Invalid delivery method. Use sms or email");
+  }
+
+  try {
+    const { identifier, message } = await verifyOTPController({
+      token,
+      otp,
+      deliveryMethod,
+    });
+
+    const user = await User.findOne(
+      deliveryMethod === "sms" ? { phoneNumber: identifier } : { email: identifier }
+    );
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+    if (!["super_admin", "ward_admin"].includes(user.role)) {
+      throw new ApiError(403, "This endpoint is for admin users only");
+    }
+
+    const { accessToken, refreshToken, refreshTokenExpiry } = await generateAccessTokenAndRefreshToken(user._id, rememberMe);
+
+    const options = {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Lax",
+      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000,
+    };
+
+    const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", refreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          { loggedInUser, accessToken, refreshToken },
+          "Admin logged in successfully"
+        )
+      );
+  } catch (error) {
+    console.error("Error in verifyAdminUserOTPLogin:", error);
     throw error;
   }
 });
@@ -337,8 +435,12 @@ const logoutUserController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged out successfully"));
 });
 
-// Get all users
+// Get all users (super_admin only)
 const getAllUsersController = asyncHandler(async (req, res) => {
+  if (req.user.role !== "super_admin") {
+    throw new ApiError(403, "Only super admins can access this endpoint");
+  }
+
   const users = await User.find().select("-password -refreshToken");
 
   if (!users || users.length === 0) {
@@ -369,28 +471,27 @@ const updateUserController = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const updateData = req.body;
 
+  if (req.user.role !== "super_admin") {
+    throw new ApiError(403, "Only super admins can update users");
+  }
+
   delete updateData.password;
   delete updateData.refreshToken;
-  delete updateData.role;
 
   const user = await User.findById(id);
   if (!user) {
     throw new ApiError(404, "User not found");
   }
 
-  // Validate file uploads if provided
   if (req.files && (req.files.profilePic || req.files.additionalFile)) {
     validateUserFiles(req.files);
 
-    // Update profile picture if provided
     if (req.files.profilePic) {
       try {
-        // Delete old profile picture from Cloudinary if exists
         if (user.profilePic) {
           const publicId = user.profilePic.split("/").pop().split(".")[0];
           await cloudinary.uploader.destroy(`User Profiles/${publicId}`);
         }
-        // Upload new profile picture
         const profilePicResult = await uploadOnCloudinary(
           req.files.profilePic[0].path,
           "User Profiles"
@@ -405,15 +506,12 @@ const updateUserController = asyncHandler(async (req, res) => {
       }
     }
 
-    // Update additional file if provided
     if (req.files.additionalFile) {
       try {
-        // Delete old file from Cloudinary if exists
         if (user.files.length > 0) {
           const publicId = user.files[0].url.split("/").pop().split(".")[0];
           await cloudinary.uploader.destroy(`User Files/${publicId}`);
         }
-        // Upload new file
         const fileResult = await uploadOnCloudinary(
           req.files.additionalFile[0].path,
           "User Files"
@@ -434,7 +532,6 @@ const updateUserController = asyncHandler(async (req, res) => {
     }
   }
 
-  // Validate updated fields
   if (updateData.email && !updateData.email.endsWith("@gmail.com")) {
     throw new ApiError(400, "Email must be a valid Gmail address");
   }
@@ -464,8 +561,13 @@ const updateUserController = asyncHandler(async (req, res) => {
     }
     updateData.dob = dobDate;
   }
+  if (updateData.role && !["user", "super_admin", "ward_admin"].includes(updateData.role)) {
+    throw new ApiError(400, "Invalid role");
+  }
+  if (updateData.role === "ward_admin" && (!updateData.assignedWards || !Array.isArray(updateData.assignedWards) || updateData.assignedWards.length === 0)) {
+    throw new ApiError(400, "Ward admins must have at least one assigned ward");
+  }
 
-  // Update other fields
   Object.assign(user, updateData);
   await user.save({ validateBeforeSave: true });
 
@@ -478,6 +580,10 @@ const updateUserController = asyncHandler(async (req, res) => {
 
 // Delete user by ID
 const deleteUserController = asyncHandler(async (req, res) => {
+  if (req.user.role !== "super_admin") {
+    throw new ApiError(403, "Only super admins can delete users");
+  }
+
   const { id } = req.params;
 
   const user = await User.findById(id);
@@ -485,7 +591,6 @@ const deleteUserController = asyncHandler(async (req, res) => {
     throw new ApiError(404, "User not found");
   }
 
-  // Delete files from Cloudinary
   const deletionErrors = [];
   if (user.profilePic) {
     try {
@@ -523,6 +628,7 @@ const deleteUserController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User deleted successfully"));
 });
 
+// Get current user
 const getCurrentUser = asyncHandler(async (req, res) => {
   try {
     const user = await User.findById(req.user._id).select("-password -refreshToken");
@@ -542,6 +648,8 @@ module.exports = {
   generateAccessTokenAndRefreshToken,
   sendOTPVerificationLogin,
   verifyUserOTPLogin,
+  sendAdminOTPVerificationLogin,
+  verifyAdminUserOTPLogin,
   logoutUserController,
   getAllUsersController,
   getUserByIdController,

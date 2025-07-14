@@ -48,7 +48,7 @@ const userSchema = new mongoose.Schema(
     tole: {
       type: String,
       trim: true,
-      default: "", // Optional
+      default: "",
     },
     gender: {
       type: String,
@@ -61,14 +61,24 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["admin", "user"],
+      enum: ["user", "super_admin", "ward_admin"],
       default: "user",
+    },
+    assignedWards: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function (value) {
+          return this.role !== "ward_admin" || value.length > 0;
+        },
+        message: "Ward admins must have at least one assigned ward",
+      },
     },
     refreshToken: {
       type: String,
     },
     profilePic: {
-      type: String, // URL for profile picture
+      type: String,
       required: true,
     },
     files: {
@@ -80,11 +90,16 @@ const userSchema = new mongoose.Schema(
       ],
       validate: {
         validator: function (value) {
-          return value.length <= 1; // Max 1 additional file
+          return value.length <= 1;
         },
         message: "You can only upload up to 1 additional file",
       },
-      default: [], // Optional
+      default: [],
+    },
+    complaintsCount: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
   },
   { timestamps: true }
@@ -97,11 +112,9 @@ userSchema.pre("save", async function (next) {
 });
 
 userSchema.pre("save", function (next) {
-  // Set username to fullname if not provided
   if (!this.username && this.fullname) {
     this.username = this.fullname.toLowerCase().replace(/\s+/g, "_");
   }
-  // Validate wardNumber based on city
   const wardNum = parseInt(this.wardNumber);
   if (this.city === "Kathmandu" && (wardNum < 1 || wardNum > 32)) {
     return next(new Error("Ward number for Kathmandu must be between 1 and 32"));
@@ -125,6 +138,7 @@ userSchema.methods.generateAccessToken = function () {
       _id: this._id,
       email: this.email,
       username: this.username,
+      role: this.role,
     },
     process.env.ACCESS_TOKEN_SECRET,
     { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }

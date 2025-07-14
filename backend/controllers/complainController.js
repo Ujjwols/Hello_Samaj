@@ -1,5 +1,6 @@
 const asyncHandler = require("../utils/asyncHandler");
 const Complaint = require("../models/complainModel");
+const User = require("../models/userModel"); // Import User model
 const { validateUploadedFiles } = require("../utils/fileValidation");
 const ApiError = require("../utils/ApiError");
 const ApiResponse = require("../utils/ApiResponse");
@@ -63,6 +64,15 @@ const createComplaintController = asyncHandler(async (req, res) => {
     ],
   });
 
+  // Increment complaintsCount in User model
+  if (req.user?._id) {
+    await User.findByIdAndUpdate(
+      req.user._id,
+      { $inc: { complaintsCount: 1 } },
+      { new: true }
+    );
+  }
+
   return res
     .status(201)
     .json(new ApiResponse(201, { complaintId }, `Complaint created successfully with ID: ${complaintId}`));
@@ -71,7 +81,7 @@ const createComplaintController = asyncHandler(async (req, res) => {
 // Get all complaints (accessible to all users)
 const getAllComplaintsController = asyncHandler(async (req, res) => {
   const query = req.user?.role === "admin" ? {} : { userId: req.user?._id };
-  const complaints = await Complaint.find({}).sort({ createdAt: -1 });
+  const complaints = await Complaint.find(query).sort({ createdAt: -1 });
 
   if (!complaints.length) {
     throw new ApiError(404, "No complaints found");
@@ -199,6 +209,15 @@ const deleteComplaintController = asyncHandler(async (req, res) => {
 
   if (deletionErrors.length > 0) {
     throw new ApiError(500, `Some files could not be deleted from Cloudinary: ${deletionErrors.join('; ')}`);
+  }
+
+  // Decrement complaintsCount in User model
+  if (complaint.userId) {
+    await User.findByIdAndUpdate(
+      complaint.userId,
+      { $inc: { complaintsCount: -1 } },
+      { new: true }
+    );
   }
 
   await Complaint.deleteOne({ complaintId: id });
