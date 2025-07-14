@@ -145,7 +145,7 @@ const LoginPage = () => {
           token: formData.token,
           otp: formData.otp,
           deliveryMethod: formData.deliveryMethod,
-          rememberMe: formData.rememberMe, // Send rememberMe to backend
+          rememberMe: formData.rememberMe,
         },
         { withCredentials: true }
       );
@@ -241,7 +241,9 @@ const LoginPage = () => {
                       checked={formData.rememberMe}
                       onCheckedChange={(checked) => handleInputChange("rememberMe", checked as boolean)}
                     />
-                    <Label htmlFor="remember" className="text-sm">{t("login.rememberMe")}</Label>
+                    <Label htmlFor="remember" className="text-sm">
+                      {t("login.rememberMe")} 
+                    </Label>
                   </div>
                   <Link to="/forgot-password" className="text-sm text-primary hover:underline">
                     {t("login.forgotPassword")}
@@ -272,7 +274,9 @@ const LoginPage = () => {
                     checked={formData.rememberMe}
                     onCheckedChange={(checked) => handleInputChange("rememberMe", checked as boolean)}
                   />
-                  <Label htmlFor="remember-otp" className="text-sm">{t("login.rememberMe")}</Label>
+                  <Label htmlFor="remember-otp" className="text-sm">
+                    {t("login.rememberMe")} <span className="text-gray-500">(Stays logged in for 30 days)</span>
+                  </Label>
                 </div>
 
                 <Button type="submit" className="w-full py-3" disabled={isLoading}>

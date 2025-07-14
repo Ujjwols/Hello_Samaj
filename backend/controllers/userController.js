@@ -10,7 +10,7 @@ const { get } = require("mongoose");
 const cloudinary = require("cloudinary").v2;
 
 // Generate refresh and access tokens
-const generateAccessTokenAndRefreshToken = async (userId) => {
+const generateAccessTokenAndRefreshToken = async (userId, rememberMe = false) => {
   try {
     const user = await User.findById(userId);
     if (!user) {
@@ -20,7 +20,7 @@ const generateAccessTokenAndRefreshToken = async (userId) => {
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
-     // Set different expiration based on rememberMe
+    // Set different expiration based on rememberMe
     const refreshTokenExpiry = rememberMe 
       ? Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
       : Date.now() + 24 * 60 * 60 * 1000; // 1 day
@@ -29,7 +29,7 @@ const generateAccessTokenAndRefreshToken = async (userId) => {
     user.refreshTokenExpiry = refreshTokenExpiry;
 
     await user.save({ validateBeforeSave: false });
-    return { accessToken, refreshToken,refreshTokenExpiry };
+    return { accessToken, refreshToken, refreshTokenExpiry };
   } catch (error) {
     console.error("Error generating tokens:", error);
     throw new ApiError(
@@ -60,6 +60,20 @@ const registerUserController = asyncHandler(async (req, res) => {
     }
   }
 
+  // Validate email
+  if (!email.endsWith("@gmail.com")) {
+    throw new ApiError(400, "Email must be a valid Gmail address");
+  }
+
+  // Validate password
+  const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/;
+  if (!passwordRegex.test(password)) {
+    throw new ApiError(
+      400,
+      "Password must be at least 6 characters long and include at least one capital letter, one number, and one special character"
+    );
+  }
+
   // Validate city
   if (!["Kathmandu", "Lalitpur", "Bhaktapur"].includes(city)) {
     throw new ApiError(400, "City must be Kathmandu, Lalitpur, or Bhaktapur");
@@ -79,7 +93,7 @@ const registerUserController = asyncHandler(async (req, res) => {
 
   // Validate gender
   if (!["male", "female"].includes(gender.toLowerCase())) {
-    throw new ApiError(400, "Gender must be 'male' or 'female'");
+    throw new ApiError(400, "Gender must be male or female");
   }
 
   // Validate DOB
@@ -150,7 +164,7 @@ const registerUserController = asyncHandler(async (req, res) => {
     dob: dobDate,
   });
 
-  const { accessToken, refreshToken } = await generateAccessTokenAndRefreshToken(user._id);
+  const { accessToken, refreshToken, refreshTokenExpiry } = await generateAccessTokenAndRefreshToken(user._id, false); // Default to short session
   const createdUser = await User.findById(user._id).select("-password -refreshToken");
 
   if (!createdUser) {
@@ -161,6 +175,7 @@ const registerUserController = asyncHandler(async (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "Lax",
+    maxAge: 24 * 60 * 60 * 1000, // 1 day for registration
   };
 
   console.log('Register response:', { user: createdUser, accessToken, refreshToken });
@@ -186,7 +201,7 @@ const sendOTPVerificationLogin = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Email, password, and delivery method are required");
   }
   if (!["sms", "email"].includes(deliveryMethod)) {
-    throw new ApiError(400, "Invalid delivery method. Use 'sms' or 'email'");
+    throw new ApiError(400, "Invalid delivery method. Use sms or email");
   }
 
   const user = await User.findOne({ email });
@@ -236,13 +251,13 @@ const sendOTPVerificationLogin = asyncHandler(async (req, res) => {
 
 // Verify OTP and login
 const verifyUserOTPLogin = asyncHandler(async (req, res) => {
-  const { token, otp, deliveryMethod } = req.body;
+  const { token, otp, deliveryMethod, rememberMe } = req.body;
 
   if (!token || !otp || !deliveryMethod) {
     throw new ApiError(400, "Token, OTP, and delivery method are required");
   }
   if (!["sms", "email"].includes(deliveryMethod)) {
-    throw new ApiError(400, "Invalid delivery method. Use 'sms' or 'email'");
+    throw new ApiError(400, "Invalid delivery method. Use sms or email");
   }
 
   try {
@@ -264,13 +279,12 @@ const verifyUserOTPLogin = asyncHandler(async (req, res) => {
     }
 
     const { accessToken, refreshToken, refreshTokenExpiry } = await generateAccessTokenAndRefreshToken(user._id, rememberMe);
-    
 
     const options = {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "Lax",
-      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000
+      maxAge: rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000,
     };
 
     const loggedInUser = await User.findById(user._id).select("-password -refreshToken");
@@ -421,6 +435,9 @@ const updateUserController = asyncHandler(async (req, res) => {
   }
 
   // Validate updated fields
+  if (updateData.email && !updateData.email.endsWith("@gmail.com")) {
+    throw new ApiError(400, "Email must be a valid Gmail address");
+  }
   if (updateData.city && !["Kathmandu", "Lalitpur", "Bhaktapur"].includes(updateData.city)) {
     throw new ApiError(400, "City must be Kathmandu, Lalitpur, or Bhaktapur");
   }
@@ -438,7 +455,7 @@ const updateUserController = asyncHandler(async (req, res) => {
     }
   }
   if (updateData.gender && !["male", "female"].includes(updateData.gender.toLowerCase())) {
-    throw new ApiError(400, "Gender must be 'male' or 'female'");
+    throw new ApiError(400, "Gender must be male or female");
   }
   if (updateData.dob) {
     const dobDate = new Date(updateData.dob);
