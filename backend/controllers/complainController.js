@@ -9,7 +9,8 @@ const mongoose = require("mongoose");
 
 // Create complaint (accessible to all users)
 const createComplaintController = asyncHandler(async (req, res) => {
-  const { type, ward, description, name, phone, email, location, city, tole, isAnonymous } = req.body;
+  const { type, ward, description, location, city, tole, isAnonymous } = req.body;
+  const user = req.user; // Set by verifyJwt middleware, may be undefined
 
   // Validate required fields
   if (!type || !ward || !description || !city) {
@@ -37,15 +38,12 @@ const createComplaintController = asyncHandler(async (req, res) => {
 
   const complaintId = `HS-${Date.now().toString().slice(-6)}`;
 
-  // Create complaint
-  const complaint = await Complaint.create({
+  // Prepare complaint data
+  const complaintData = {
     complaintId,
     type,
     ward,
     description,
-    name: isAnonymous === "true" || isAnonymous === true ? "" : name,
-    phone: isAnonymous === "true" || isAnonymous === true ? "" : phone,
-    email: isAnonymous === "true" || isAnonymous === true ? "" : email,
     location,
     city,
     tole,
@@ -54,7 +52,6 @@ const createComplaintController = asyncHandler(async (req, res) => {
     status: "Submitted",
     submittedDate: new Date(),
     lastUpdate: new Date(),
-    userId: req.user?._id,
     timeline: [
       {
         date: new Date(),
@@ -62,12 +59,31 @@ const createComplaintController = asyncHandler(async (req, res) => {
         description: "Complaint received and logged into system",
       },
     ],
-  });
+  };
 
-  // Increment complaintsCount in User model
-  if (req.user?._id) {
+  // Handle user data based on isAnonymous
+  if (isAnonymous === "true" || isAnonymous === true) {
+    complaintData.userId = null;
+    complaintData.name = "";
+    complaintData.phone = "";
+    complaintData.email = "";
+  } else {
+    if (!user) {
+      throw new ApiError(401, "Authentication required for non-anonymous complaints");
+    }
+    complaintData.userId = user._id;
+    complaintData.name = user.fullname || "";
+    complaintData.phone = user.phoneNumber || "";
+    complaintData.email = user.email || "";
+  }
+
+  // Create complaint
+  const complaint = await Complaint.create(complaintData);
+
+  // Increment complaintsCount in User model for non-anonymous complaints
+  if (user && !complaintData.isAnonymous) {
     await User.findByIdAndUpdate(
-      req.user._id,
+      user._id,
       { $inc: { complaintsCount: 1 } },
       { new: true }
     );
@@ -78,15 +94,12 @@ const createComplaintController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, { complaintId }, `Complaint created successfully with ID: ${complaintId}`));
 });
 
+
+
 // Get all complaints (accessible to all users)
 const getAllComplaintsController = asyncHandler(async (req, res) => {
-  const query = req.user?.role === "admin" ? {} : { userId: req.user?._id };
-  const complaints = await Complaint.find(query).sort({ createdAt: -1 });
-
-  if (!complaints.length) {
-    throw new ApiError(404, "No complaints found");
-  }
-
+  const complaints = await Complaint.find({}).sort({ createdAt: -1 }).lean();
+  console.log("Fetched complaints:", complaints); // Debug log
   return res
     .status(200)
     .json(new ApiResponse(200, complaints, "All complaints fetched successfully"));
@@ -260,6 +273,19 @@ const deleteComplaintFileController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, complaint, "File deleted successfully"));
 });
 
+const upvoteComplaint = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const complaint = await Complaint.findOne({ complaintId: id });
+  if (!complaint) {
+    throw new ApiError(404, "Complaint not found");
+  }
+  complaint.upvotes = (complaint.upvotes || 0) + 1;
+  await complaint.save();
+  return res
+    .status(200)
+    .json(new ApiResponse(200, complaint, "Upvote added successfully"));
+});
+
 module.exports = {
   createComplaintController,
   getAllComplaintsController,
@@ -267,4 +293,5 @@ module.exports = {
   updateComplaintController,
   deleteComplaintController,
   deleteComplaintFileController,
+  upvoteComplaint,
 };

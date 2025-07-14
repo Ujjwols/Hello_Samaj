@@ -57,6 +57,10 @@ const translations: Translations = {
   'submit.selectLocation': { en: 'Select Location on Map', ne: 'नक्सामा स्थान छान्नुहोस्' },
   'submit.mapHelp': { en: 'Click on the map to select the exact location of the issue', ne: 'समस्याको सही स्थान छान्न नक्सामा क्लिक गर्नुहोस्' },
   'submit.selectedLocation': { en: 'Selected Location', ne: 'छानिएको स्थान' },
+  'Complaint Submitted Successfully': { en: 'Complaint Submitted Successfully', ne: 'गुनासो सफलतापूर्वक पेश गरियो' },
+  'Copied to clipboard!': { en: 'Copied to clipboard!', ne: 'क्लिपबोर्डमा प्रतिलिपि गरियो!' },
+  'Close': { en: 'Close', ne: 'बन्द गर्नुहोस्' },
+  'Copy': { en: 'Copy', ne: 'प्रतिलिपि गर्नुहोस्' },
   
   // Login page
   'login.welcomeBack': { en: 'Welcome Back', ne: 'फिर्ता स्वागत छ' },

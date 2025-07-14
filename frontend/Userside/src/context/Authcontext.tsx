@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-
+  
   const checkAuth = async () => {
     try {
       setIsLoading(true);
@@ -49,11 +49,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login(response.data.data.user);
       }
     } catch (error) {
-      logout();
+      // just clear auth, don't redirect
+      await logout(false);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     checkAuth();
@@ -64,15 +66,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(userData);
   };
 
-  const logout = async () => {
-    try {
-      await axios.post(`${API_URL}/users/logout`, {}, { withCredentials: true });
-    } finally {
-      setIsLoggedIn(false);
-      setUser(null);
-      navigate('/login');
-    }
-  };
+  const logout = async (redirect: boolean = false) => {
+  try {
+    await axios.post(`${API_URL}/users/logout`, {}, { withCredentials: true });
+  } catch (error) {
+    // optional: console.log("Logout error", error);
+  } finally {
+    setIsLoggedIn(false);
+    setUser(null);
+    if (redirect) navigate('/login');
+  }
+};
   
 
   return (

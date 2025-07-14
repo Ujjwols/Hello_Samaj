@@ -392,7 +392,7 @@ const Profile = () => {
                 ) : (
                   <div className="text-center py-8">
                     <p className="text-gray-500">No complaints submitted yet.</p>
-                    <Button className="mt-4" onClick={() => navigate('/submit-complaint')}>
+                    <Button className="mt-4" onClick={() => navigate('/submit')}>
                       Submit Your First Complaint
                     </Button>
                   </div>

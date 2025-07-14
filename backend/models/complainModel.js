@@ -95,11 +95,12 @@ const complaintSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    upvotes: { type: Number, default: 0 },
     userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true, // Require userId to associate complaint with user
-  },
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null, // Allow null for anonymous complaints
+    },
     timeline: {
       type: [
         {

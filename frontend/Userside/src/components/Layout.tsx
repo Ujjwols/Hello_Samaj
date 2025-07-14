@@ -149,8 +149,6 @@ const Layout = ({ children }: LayoutProps) => {
               <ul className="space-y-2">
                 <li><Link to="/help" className="text-gray-300 hover:text-white transition-colors">{t('nav.help')}</Link></li>
                 <li><Link to="/feedback" className="text-gray-300 hover:text-white transition-colors">{t('nav.feedback')}</Link></li>
-                <li><Link to="/privacy" className="text-gray-300 hover:text-white transition-colors">{t('footer.privacy')}</Link></li>
-                <li><Link to="/terms" className="text-gray-300 hover:text-white transition-colors">{t('footer.terms')}</Link></li>
               </ul>
             </div>
 

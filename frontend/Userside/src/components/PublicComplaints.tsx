@@ -281,10 +281,25 @@ const PublicComplaints = () => {
                     </div>
                     <div className="flex flex-col items-end space-y-2">
                       <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" className="flex items-center">
-                          <ThumbsUp className="w-4 h-4 mr-1" />
-                          {complaint.upvotes || 0}
-                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center"
+                            onClick={async () => {
+                              try {
+                                await axios.post(`${API_BASE_URL}/upvote/${complaint.complaintId}`);
+                                fetchAllComplaints(); // Refresh complaints
+                              } catch (err) {
+                                toast({
+                                  title: t('error.title'),
+                                  description: t('error.upvoteFailed'),
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}>
+                            <ThumbsUp className="w-4 h-4 mr-1" />
+                            {complaint.upvotes || 0}
+                          </Button>
                         <ReportMisuseModal complaintId={complaint.complaintId} />
                       </div>
                     </div>
