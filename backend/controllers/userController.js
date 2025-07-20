@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require("uuid");
 const { validateUserFiles } = require("../utils/fileValidation");
 const { uploadOnCloudinary } = require("../utils/cloudinary");
 const cloudinary = require("cloudinary").v2;
+const jwt = require("jsonwebtoken");
 
 // Generate refresh and access tokens
 const generateAccessTokenAndRefreshToken = async (userId, rememberMe = false) => {
@@ -36,6 +37,31 @@ const generateAccessTokenAndRefreshToken = async (userId, rememberMe = false) =>
     );
   }
 };
+
+// Refresh token endpoint
+const refreshTokenController = asyncHandler(async (req, res) => {
+  const refreshToken = req.cookies.refreshToken;
+  if (!refreshToken) {
+    throw new ApiError(401, "No refresh token provided");
+  }
+  const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+  const user = await User.findById(decoded._id);
+  if (!user || user.refreshToken !== refreshToken || user.refreshTokenExpiry < Date.now()) {
+    throw new ApiError(401, "Invalid or expired refresh token");
+  }
+  const { accessToken, refreshToken: newRefreshToken, refreshTokenExpiry } = await generateAccessTokenAndRefreshToken(user._id, user.refreshTokenExpiry > Date.now() + 24 * 60 * 60 * 1000);
+  const options = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Lax",
+    maxAge: user.refreshTokenExpiry > Date.now() + 24 * 60 * 60 * 1000 ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000,
+  };
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", newRefreshToken, options)
+    .json(new ApiResponse(200, { accessToken, refreshToken: newRefreshToken }, "Token refreshed successfully"));
+});
 
 // Register a new user
 const registerUserController = asyncHandler(async (req, res) => {
@@ -541,14 +567,13 @@ const updateUserController = asyncHandler(async (req, res) => {
   }
   if (updateData.wardNumber) {
     const wardNum = parseInt(updateData.wardNumber);
-    const city = updateData.city || user.city;
-    if (city === "Kathmandu" && (wardNum < 1 || wardNum > 32)) {
+    if (updateData.city === "Kathmandu" && (wardNum < 1 || wardNum > 32)) {
       throw new ApiError(400, "Ward number for Kathmandu must be between 1 and 32");
     }
-    if (city === "Lalitpur" && (wardNum < 1 || wardNum > 29)) {
+    if (updateData.city === "Lalitpur" && (wardNum < 1 || wardNum > 29)) {
       throw new ApiError(400, "Ward number for Lalitpur must be between 1 and 29");
     }
-    if (city === "Bhaktapur" && (wardNum < 1 || wardNum > 10)) {
+    if (updateData.city === "Bhaktapur" && (wardNum < 1 || wardNum > 10)) {
       throw new ApiError(400, "Ward number for Bhaktapur must be between 1 and 10");
     }
   }
@@ -560,101 +585,31 @@ const updateUserController = asyncHandler(async (req, res) => {
     if (isNaN(dobDate.getTime()) || dobDate > new Date()) {
       throw new ApiError(400, "Invalid date of birth");
     }
-    updateData.dob = dobDate;
+  }
+  if (updateData.role && !["user", "super_admin", "ward_admin"].includes(updateData.role)) {
+    throw new ApiError(400, "Invalid role");
+  }
+  if (updateData.role === "ward_admin" && (!updateData.assignedWards || !Array.isArray(updateData.assignedWards) || updateData.assignedWards.length === 0)) {
+    throw new ApiError(400, "Ward admins must have at least one assigned ward");
   }
 
-  // Prevent non-super_admins from updating role or assignedWards
-  if (req.user.role !== "super_admin") {
-    delete updateData.role;
-    delete updateData.assignedWards;
-  } else {
-    // Super admin can update role and assignedWards, with validation
-    if (updateData.role && !["user", "super_admin", "ward_admin"].includes(updateData.role)) {
-      throw new ApiError(400, "Invalid role");
-    }
-    if (updateData.role === "ward_admin" && (!updateData.assignedWards || !Array.isArray(updateData.assignedWards) || updateData.assignedWards.length === 0)) {
-      throw new ApiError(400, "Ward admins must have at least one assigned ward");
-    }
+  const updatedUser = await User.findByIdAndUpdate(
+    id,
+    { $set: updateData },
+    { new: true, runValidators: true }
+  ).select("-password -refreshToken");
+
+  if (!updatedUser) {
+    throw new ApiError(500, "Error while updating user");
   }
-
-  Object.assign(user, updateData);
-  await user.save({ validateBeforeSave: true });
-
-  const updatedUser = await User.findById(id).select("-password -refreshToken");
 
   return res
     .status(200)
     .json(new ApiResponse(200, updatedUser, "User updated successfully"));
 });
 
-// Delete user by ID
-const deleteUserController = asyncHandler(async (req, res) => {
-  if (req.user.role !== "super_admin") {
-    throw new ApiError(403, "Only super admins can delete users");
-  }
-
-  const { id } = req.params;
-
-  const user = await User.findById(id);
-  if (!user) {
-    throw new ApiError(404, "User not found");
-  }
-
-  const deletionErrors = [];
-  if (user.profilePic) {
-    try {
-      const publicId = user.profilePic.split("/").pop().split(".")[0];
-      await cloudinary.uploader.destroy(`User Profiles/${publicId}`);
-    } catch (error) {
-      if (!error.message.includes("not found")) {
-        deletionErrors.push(`Failed to delete profile picture: ${error.message}`);
-      }
-    }
-  }
-
-  if (user.files.length > 0) {
-    try {
-      const publicId = user.files[0].url.split("/").pop().split(".")[0];
-      await cloudinary.uploader.destroy(`User Files/${publicId}`);
-    } catch (error) {
-      if (!error.message.includes("not found")) {
-        deletionErrors.push(`Failed to delete additional file: ${error.message}`);
-      }
-    }
-  }
-
-  if (deletionErrors.length > 0) {
-    throw new ApiError(
-      500,
-      `Some files could not be deleted: ${deletionErrors.join("; ")}`
-    );
-  }
-
-  await User.findByIdAndDelete(id);
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, {}, "User deleted successfully"));
-});
-
-// Get current user
-const getCurrentUser = asyncHandler(async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id).select("-password -refreshToken");
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
-    return res
-      .status(200)
-      .json(new ApiResponse(200, { user }, "Current user fetched successfully"));
-  } catch (error) {
-    throw new ApiError(500, error.message || "Failed to fetch current user");
-  }
-});
-
 module.exports = {
   registerUserController,
-  generateAccessTokenAndRefreshToken,
   sendOTPVerificationLogin,
   verifyUserOTPLogin,
   sendAdminOTPVerificationLogin,
@@ -663,6 +618,5 @@ module.exports = {
   getAllUsersController,
   getUserByIdController,
   updateUserController,
-  deleteUserController,
-  getCurrentUser,
+  refreshTokenController,
 };

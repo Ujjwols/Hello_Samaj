@@ -1,4 +1,5 @@
 const express = require("express");
+const router = express.Router();
 const {
   registerUserController,
   sendOTPVerificationLogin,
@@ -9,54 +10,28 @@ const {
   getAllUsersController,
   getUserByIdController,
   updateUserController,
-  deleteUserController,
-  getCurrentUser,
+  refreshTokenController,
 } = require("../controllers/userController");
-const verifyJWT = require("../middleware/authMiddleware");
-const verifyAdmin = require("../middleware/verifyAdmin");
-const upload = require("../middleware/multer");
-const ApiResponse = require("../utils/ApiResponse");
+const  verifyJWT  = require("../middleware/authMiddleware");
+const  upload  = require("../middleware/multer");
 
-const router = express.Router();
-
-// Public routes
-router.post(
-  "/register",
+router.route("/register").post(
   upload.fields([
     { name: "profilePic", maxCount: 1 },
     { name: "additionalFile", maxCount: 1 },
   ]),
   registerUserController
 );
-router.post("/send-otp", sendOTPVerificationLogin);
-router.post("/verify-otp", verifyUserOTPLogin);
-router.post("/admin/send-otp", sendAdminOTPVerificationLogin);
-router.post("/admin/verify-otp",verifyAdminUserOTPLogin);
 
-// Protected routes
-router.post("/logout", verifyJWT, logoutUserController);
-
-router.get("/check-auth", verifyJWT, async (req, res) => {
-  if (!req.user) {
-    return res.status(401).json({
-      success: false,
-      message: "No authenticated user found",
-      statusCode: 401,
-    });
-  }
-  return res
-    .status(200)
-    .json(new ApiResponse(200, req.user, "User is authenticated"));
-});
-
-// Admin-only routes (super_admin only for user management)
-router.get("/get-all-users", verifyJWT, verifyAdmin, getAllUsersController);
-router.delete("/delete-user/:id", verifyJWT, verifyAdmin, deleteUserController);
-
-// Authenticated user routes
-router.get("/get-user/:id", verifyJWT, getUserByIdController);
-router.patch(
-  "/update-user/:id",
+router.route("/send-otp").post(sendOTPVerificationLogin);
+router.route("/verify-otp").post(verifyUserOTPLogin);
+router.route("/admin/send-otp").post(sendAdminOTPVerificationLogin);
+router.route("/admin/verify-otp").post(verifyAdminUserOTPLogin);
+router.route("/logout").post(verifyJWT, logoutUserController);
+router.route("/refresh-token").post(refreshTokenController);
+router.route("/get-all-users").get(verifyJWT, getAllUsersController);
+router.route("/get-user/:id").get(verifyJWT, getUserByIdController);
+router.route("/upadte-user/:id").patch(
   verifyJWT,
   upload.fields([
     { name: "profilePic", maxCount: 1 },
@@ -64,7 +39,5 @@ router.patch(
   ]),
   updateUserController
 );
-
-router.get("/current-user", verifyJWT, getCurrentUser);
 
 module.exports = router;

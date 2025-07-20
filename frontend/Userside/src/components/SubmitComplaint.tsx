@@ -26,6 +26,7 @@ const SubmitComplaint = () => {
   const { t } = useTranslation();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toleError, setToleError] = useState<string | null>(null);
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lng: number; address: string } | undefined>();
   const [files, setFiles] = useState<File[]>([]);
@@ -69,7 +70,33 @@ const SubmitComplaint = () => {
   };
 
   const handleInputChange = (field: string, value: string) => {
+    if (field === 'tole') {
+      if (/\d/.test(value)) {
+        setToleError('Tole name should not contain numbers');
+      } else {
+        setToleError(null);
+      }
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleClearForm = () => {
+    setFormData({
+      type: '',
+      ward: '',
+      description: '',
+      location: '',
+      city: '',
+      tole: '',
+    });
+    setFiles([]);
+    setSelectedLocation(undefined);
+    setIsAnonymous(false);
+    setToleError(null);
+    toast({
+      title: t('Form Cleared'),
+      description: t('All form fields have been reset.'),
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,8 +104,15 @@ const SubmitComplaint = () => {
 
     if (!formData.type || !formData.ward || !formData.description || !formData.city) {
       toast({
-        title: t('error.invalidInput') || 'Invalid Input',
-        description: t('error.requiredFields') || 'Please fill in all required fields.',
+        title: 'All fields are required',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (toleError) {
+      toast({
+        title: 'Invalid Tole name',
+        description: toleError,
         variant: 'destructive',
       });
       return;
@@ -123,10 +157,7 @@ const SubmitComplaint = () => {
         description: t('successDescription', { complaintId }) || `Your complaint has been submitted. ID: ${complaintId}`,
       });
 
-      setFormData({ type: '', ward: '', description: '', location: '', city: '', tole: '' });
-      setSelectedLocation(undefined);
-      setFiles([]);
-      setIsAnonymous(false);
+      handleClearForm();
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message: string }>;
       toast({
@@ -159,7 +190,6 @@ const SubmitComplaint = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
-
                 <div className="space-y-2">
                   <Label>{t('Complaint Type *')}</Label>
                   <Select value={formData.type} onValueChange={(val) => handleInputChange('type', val)}>
@@ -252,24 +282,29 @@ const SubmitComplaint = () => {
                   <Label htmlFor="anonymous">{t('Submit as anonymous (no login required)')}</Label>
                 </div>
 
-                <Button type="submit" className="w-full py-3 text-lg" disabled={isSubmitting}>
-                  {isSubmitting ? t('submitting') : t('submit')}
-                </Button>
+                <div className="flex gap-4">
+                  <Button type="submit" className="w-full py-3 text-lg" disabled={isSubmitting}>
+                    {isSubmitting ? t('submitting') : t('submit')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full py-3 text-lg bg-red-500 hover:bg-red-600 text-white border-none"
+                    onClick={handleClearForm}
+                  >
+                    {t('Clear Form')}
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
-
-          <div className="animate-fade-in">
-            <LocationPicker onLocationSelect={handleLocationSelect} selectedLocation={selectedLocation} />
-          </div>
         </div>
       </div>
 
-      {/* ✅ Success Dialog */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('Complaint Submitted Successfully')}</DialogTitle>
+            <DialogTitle className="text-green-600">{t('Complaint Submitted Successfully')}</DialogTitle>
             <DialogDescription>{t('Your complaint has been submitted.')}</DialogDescription>
           </DialogHeader>
           <div className="flex items-center justify-between bg-gray-100 p-3 rounded-md mt-4">
