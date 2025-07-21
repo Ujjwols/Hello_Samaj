@@ -608,6 +608,16 @@ const updateUserController = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, updatedUser, "User updated successfully"));
 });
 
+const getCurrentUserController = asyncHandler(async (req, res) => {
+  const user = req.user; // Set by verifyJWT middleware
+  if (!user) {
+    throw new ApiError(401, "User not authenticated");
+  }
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { user }, "Current user retrieved successfully"));
+});
+
 module.exports = {
   registerUserController,
   sendOTPVerificationLogin,
@@ -619,4 +629,5 @@ module.exports = {
   getUserByIdController,
   updateUserController,
   refreshTokenController,
+  getCurrentUserController,
 };

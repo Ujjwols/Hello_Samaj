@@ -104,30 +104,18 @@ const SubmitComplaint = () => {
 
     if (!formData.type || !formData.ward || !formData.description || !formData.city) {
       toast({
-        title: 'All fields are required',
+        title: t('All fields are required'),
         variant: 'destructive',
       });
       return;
     }
     if (toleError) {
       toast({
-        title: 'Invalid Tole name',
+        title: t('Invalid Tole name'),
         description: toleError,
         variant: 'destructive',
       });
       return;
-    }
-
-    if (!isAnonymous) {
-      const hasCookies = document.cookie.includes('accessToken=');
-      if (!hasCookies) {
-        toast({
-          title: t('error.title') || 'Authentication Required',
-          description: t('error.loginRequired') || 'Please log in to submit a non-anonymous complaint.',
-          variant: 'destructive',
-        });
-        return;
-      }
     }
 
     setIsSubmitting(true);
@@ -160,9 +148,15 @@ const SubmitComplaint = () => {
       handleClearForm();
     } catch (error: unknown) {
       const axiosError = error as AxiosError<{ message: string }>;
+      let errorMessage = t('error.submitFailed') || 'Failed to submit complaint. Please try again.';
+      if (axiosError.response?.status === 401) {
+        errorMessage = t('error.loginRequired') || 'Please log in to submit a non-anonymous complaint.';
+      } else if (axiosError.response?.data?.message) {
+        errorMessage = axiosError.response.data.message;
+      }
       toast({
         title: t('error.title') || 'Submission Failed',
-        description: axiosError.response?.data?.message || t('error.submitFailed') || 'Failed to submit complaint. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -170,14 +164,19 @@ const SubmitComplaint = () => {
     }
   };
 
+  // Get API key from env
+  const mapApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">{t('Submit Complaint')}</h1>
         </div>
 
+        {/* Two columns: Left = Form, Right = Map */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left side - Form */}
           <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -235,6 +234,7 @@ const SubmitComplaint = () => {
                 <div className="space-y-2">
                   <Label>{t('Tole')}</Label>
                   <Input value={formData.tole} onChange={(e) => handleInputChange('tole', e.target.value)} placeholder={t('Please enter your Tole Name')} />
+                  {toleError && <p className="text-red-600 text-sm mt-1">{toleError}</p>}
                 </div>
 
                 <div className="space-y-2">
@@ -298,6 +298,13 @@ const SubmitComplaint = () => {
               </form>
             </CardContent>
           </Card>
+
+          {/* Right side - Map */}
+          <LocationPicker
+            selectedLocation={selectedLocation}
+            onLocationSelect={handleLocationSelect}
+            mapApiKey={mapApiKey}
+          />
         </div>
       </div>
 
@@ -316,12 +323,12 @@ const SubmitComplaint = () => {
                 navigator.clipboard.writeText(complaintId || '');
                 toast({ title: t('Copied to clipboard!') });
               }}
-              className="flex gap-1 items-center"
             >
-              <Copy size={16} /> {t('Copy')}
+              <Copy className="w-4 h-4 mr-1" />
+              {t('Copy ID')}
             </Button>
           </div>
-          <DialogFooter className="mt-4">
+          <DialogFooter>
             <Button onClick={() => setShowSuccessDialog(false)}>{t('Close')}</Button>
           </DialogFooter>
         </DialogContent>

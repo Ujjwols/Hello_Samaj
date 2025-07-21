@@ -38,8 +38,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-  
-  const checkAuth = async () => {
+
+
+
+    const checkAuth = async () => {
     try {
       setIsLoading(true);
       const response = await axios.get(`${API_URL}/users/current-user`, {
@@ -49,7 +51,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login(response.data.data.user);
       }
     } catch (error) {
-      // just clear auth, don't redirect
+      if (error.response?.status === 401) {
+        // Try refreshing the token
+        try {
+          const refreshResponse = await axios.post(
+            `${API_URL}/users/refresh-token`,
+            {},
+            { withCredentials: true }
+          );
+          if (refreshResponse.data?.data?.accessToken) {
+            // Retry fetching current user after refreshing token
+            const retryResponse = await axios.get(`${API_URL}/users/current-user`, {
+              withCredentials: true,
+            });
+            if (retryResponse.data?.data?.user) {
+              login(retryResponse.data.data.user);
+              return;
+            }
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+        }
+      }
+      // Log out only if both current-user and refresh-token fail
       await logout(false);
     } finally {
       setIsLoading(false);

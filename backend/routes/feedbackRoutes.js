@@ -12,8 +12,8 @@ const feedbackLimiter = rateLimit({
 });
 
 router.post('/submit-feedback', feedbackLimiter, feedbackController.submitFeedback);
-router.get('/all-feedback', verifyJWT, verifyAdmin, feedbackController.getAllFeedback);
-router.get('/feedback/:id', verifyJWT, verifyAdmin, feedbackController.getFeedbackById);
-router.patch('/feedback/:id/review', verifyJWT, verifyAdmin, feedbackController.markFeedbackReviewed);
+router.get('/all-feedback', verifyJWT,  feedbackController.getAllFeedback);
+router.get('/feedback/:id', verifyJWT,  feedbackController.getFeedbackById);
+router.patch('/feedback/:id/review', verifyJWT,  feedbackController.markFeedbackReviewed);
 
 module.exports = router;

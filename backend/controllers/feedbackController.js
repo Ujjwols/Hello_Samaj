@@ -1,7 +1,8 @@
+const mongoose = require('mongoose'); // Add this import
 const Feedback = require('../models/feedbackModel');
 const sendEmail = require('../utils/sendEmail');
 const ApiError = require('../utils/ApiError');
-const asyncHandler = require('../utils/asyncHandler'); // Assuming you have this utility
+const asyncHandler = require('../utils/asyncHandler');
 
 // Submit feedback
 const submitFeedback = asyncHandler(async (req, res, next) => {
@@ -27,7 +28,7 @@ const submitFeedback = asyncHandler(async (req, res, next) => {
     message: message.substring(0, 2000),
     email: anonymous ? null : email,
     anonymous,
-    ward: ward || null, // Optional ward field
+    ward: ward || null,
     status: 'new',
   });
 

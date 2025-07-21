@@ -11,6 +11,7 @@ const {
   getUserByIdController,
   updateUserController,
   refreshTokenController,
+  getCurrentUserController
 } = require("../controllers/userController");
 const  verifyJWT  = require("../middleware/authMiddleware");
 const  upload  = require("../middleware/multer");
@@ -31,7 +32,7 @@ router.route("/logout").post(verifyJWT, logoutUserController);
 router.route("/refresh-token").post(refreshTokenController);
 router.route("/get-all-users").get(verifyJWT, getAllUsersController);
 router.route("/get-user/:id").get(verifyJWT, getUserByIdController);
-router.route("/upadte-user/:id").patch(
+router.route("/update-user/:id").patch(
   verifyJWT,
   upload.fields([
     { name: "profilePic", maxCount: 1 },
@@ -39,5 +40,6 @@ router.route("/upadte-user/:id").patch(
   ]),
   updateUserController
 );
+router.route("/current-user").get(verifyJWT, getCurrentUserController);
 
 module.exports = router;

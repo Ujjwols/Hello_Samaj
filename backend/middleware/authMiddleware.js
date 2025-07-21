@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
+const moongoose = require("mongoose");
 const User = require("../models/userModel");
 
 const verifyJWT = asyncHandler(async (req, res, next) => {

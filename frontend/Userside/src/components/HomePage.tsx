@@ -1,12 +1,20 @@
-
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare, Search, FileText, Users, CheckCircle, Clock } from 'lucide-react';
 import { useTranslation } from '@/hooks/useTranslation';
+import axios from 'axios';
 
 const HomePage = () => {
   const { t } = useTranslation();
+  const [stats, setStats] = useState([
+    { label: t('home.totalComplaints'), value: '0', icon: FileText },
+    { label: t('home.resolvedIssues'), value: '0', icon: CheckCircle },
+    { label: t('home.inProgress'), value: '0', icon: Clock },
+    { label: t('home.activeUsers'), value: '0', icon: Users },
+  ]);
+  const [error, setError] = useState(null);
 
   const quickActions = [
     {
@@ -32,12 +40,48 @@ const HomePage = () => {
     },
   ];
 
-  const stats = [
-    { label: t('home.totalComplaints'), value: '1,234', icon: FileText },
-    { label: t('home.resolvedIssues'), value: '856', icon: CheckCircle },
-    { label: t('home.inProgress'), value: '298', icon: Clock },
-    { label: t('home.activeUsers'), value: '2,458', icon: Users },
-  ];
+  // Function to fetch community impact statistics
+  const fetchCommunityStats = async () => {
+    try {
+      // Fetch complaints
+      const complaintsResponse = await axios.get('http://localhost:5000/api/v1/complaints/get-all-complaints', {
+        withCredentials: true,
+      });
+
+      const complaints = complaintsResponse.data.data; // Assuming ApiResponse structure: { statusCode, data, message }
+      const totalComplaints = complaints.length;
+      const resolvedIssues = complaints.filter(complaint => complaint.status === 'Resolved').length;
+      const inProgress = complaints.filter(complaint => complaint.status === 'In Progress').length;
+
+      // Fetch users (only for super_admin)
+      let activeUsers = 'N/A'; // Fallback for non-admins
+      try {
+        const usersResponse = await axios.get('http://localhost:5000/api/v1/users/get-all-users', {
+          withCredentials: true,
+        });
+        activeUsers = usersResponse.data.data.length.toString();
+      } catch (userError) {
+        console.warn('Failed to fetch users (possibly not super_admin):', userError.response?.data?.message || userError.message);
+        // Keep 'N/A' or fallback value if unauthorized
+      }
+
+      // Update stats with fetched data
+      setStats([
+        { label: t('home.totalComplaints'), value: totalComplaints.toString(), icon: FileText },
+        { label: t('home.resolvedIssues'), value: resolvedIssues.toString(), icon: CheckCircle },
+        { label: t('home.inProgress'), value: inProgress.toString(), icon: Clock },
+        { label: t('home.activeUsers'), value: activeUsers, icon: Users },
+      ]);
+    } catch (err) {
+      console.error('Error fetching community stats:', err.response?.data?.message || err.message);
+      setError(t('home.errorFetchingStats') || 'Failed to load community statistics');
+    }
+  };
+
+  // Fetch stats on component mount
+  useEffect(() => {
+    fetchCommunityStats();
+  }, [t]); // Re-run if translation changes
 
   return (
     <div className="min-h-screen">
@@ -65,7 +109,7 @@ const HomePage = () => {
 
       {/* Quick Actions */}
       <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">{t('home.quickActions')}</h2>
             <p className="text-lg text-gray-600">{t('home.quickActionsDesc')}</p>
@@ -100,6 +144,7 @@ const HomePage = () => {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">{t('home.communityImpact')}</h2>
             <p className="text-lg text-gray-600">{t('home.communityImpactDesc')}</p>
+            {error && <p className="text-red-600 mt-4">{error}</p>}
           </div>
           
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
